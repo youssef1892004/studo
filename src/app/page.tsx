@@ -1,35 +1,55 @@
+// File path: src/app/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { fetchVoices } from '@/lib/tts';
 import { Voice, TTSCardData } from '@/lib/types';
 import VoiceCard from '@/components/VoiceCard';
 import AudioPlayer from '@/components/AudioPlayer';
-import { Plus, LoaderCircle, Play } from 'lucide-react';
+import { Plus, LoaderCircle, Play, Orbit } from 'lucide-react';
+import { AuthContext } from '@/contexts/AuthContext';
+
 
 export default function Home() {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [cards, setCards] = useState<TTSCardData[]>([]);
-  const [mergedAudioUrl, setMergedAudioUrl] = useState<string | null>(null);
+  
+  const [mergedAudioBlob, setMergedAudioBlob] = useState<Blob | null>(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const authContext = useContext(AuthContext);
+  const router = useRouter();
+  
+  // Page Protection Logic
+  useEffect(() => {
+    if (!authContext) return;
+    
+    if (!authContext.isLoading && !authContext.user) {
+      router.push('/login');
+    }
+  }, [authContext, router]);
+
 
   useEffect(() => {
     async function loadVoices() {
       try {
         const fetchedVoices = await fetchVoices();
         setVoices(fetchedVoices);
-        // Initialize with one card
         if (fetchedVoices.length > 0) {
-          setCards([{ id: uuidv4(), text: '', voice: fetchedVoices[0].name }]);
+          setCards([{ id: uuidv4(), text: 'مرحبًا بك في محرر الصوت.', voice: fetchedVoices[0].name }]);
         }
       } catch (err) {
         setError('Could not load voices. Please try refreshing the page.');
       }
     }
-    loadVoices();
-  }, []);
+    if (authContext?.user) {
+        loadVoices();
+    }
+  }, [authContext?.user]);
 
   const addCard = () => {
     if (voices.length > 0) {
@@ -54,7 +74,7 @@ export default function Home() {
 
     setIsLoading(true);
     setError(null);
-    setMergedAudioUrl(null);
+    setMergedAudioBlob(null);
 
     try {
       const response = await fetch('/api/tts/merge', {
@@ -64,13 +84,12 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to generate merged audio.');
+        const errData = await response.json().catch(() => ({ error: 'An unknown error occurred on the server.' }));
+        throw new Error(errData.error || 'Failed to generate merged audio.');
       }
 
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      setMergedAudioUrl(url);
+      setMergedAudioBlob(blob);
 
     } catch (err: any) {
       setError(err.message);
@@ -78,6 +97,15 @@ export default function Home() {
       setIsLoading(false);
     }
   };
+
+  // Loading screen while checking auth
+  if (!authContext || authContext.isLoading || !authContext.user) {
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+            <Orbit className="w-12 h-12 animate-spin text-indigo-600" />
+        </div>
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-gray-50 p-4 sm:p-8 md:p-12">
@@ -137,11 +165,11 @@ export default function Home() {
             </button>
         </div>
 
-        {mergedAudioUrl && (
+        {mergedAudioBlob && (
           <section className="mt-12">
             <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Merged Audio Result</h2>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                <AudioPlayer audioUrl={mergedAudioUrl} />
+                <AudioPlayer audioBlob={mergedAudioBlob} />
             </div>
           </section>
         )}
@@ -149,3 +177,4 @@ export default function Home() {
     </main>
   );
 }
+
