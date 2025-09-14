@@ -1,5 +1,4 @@
 // File path: src/lib/types.ts
-// Reverted to the simpler version before the timeline feature
 
 export interface Voice {
   gender: string;
@@ -11,6 +10,7 @@ export interface TTSCardData {
   id: string;
   text: string;
   voice: string;
+  duration?: number; // Optional duration in seconds
 }
 
 // This is the type expected by the merge API route
@@ -20,6 +20,11 @@ export interface TTSRequestItem {
     voice: string;
 }
 
+// This will be the structure of the data returned from the merge API
+export interface Segment {
+    id: string;
+    duration: number;
+}
 
 // User and Auth types remain as they are correct
 export interface User {

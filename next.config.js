@@ -9,6 +9,8 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     // We only need ffmpeg for merging on the server
     if (isServer) {
+      
+
       config.plugins.push(
         new CopyPlugin({
           patterns: [

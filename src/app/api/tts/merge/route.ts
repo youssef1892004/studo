@@ -1,4 +1,3 @@
-// File path: src/app/api/tts/merge/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -7,7 +6,8 @@ import ffmpegStatic from 'ffmpeg-static';
 import { v4 as uuidv4 } from 'uuid';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { TTSRequestItem } from '../../../../lib/types';
+import getMp3Duration from 'get-mp3-duration';
+import { TTSRequestItem, Segment } from '../../../../lib/types';
 
 const execFilePromise = promisify(execFile);
 
@@ -53,8 +53,9 @@ export async function POST(req: NextRequest) {
     await fs.mkdir(tempDir, { recursive: true });
 
     const fileList: string[] = [];
+    const segments: Segment[] = [];
+    const errors: string[] = [];
 
-    // We no longer need to calculate duration on the server
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (!item.text.trim()) continue;
@@ -65,20 +66,26 @@ export async function POST(req: NextRequest) {
           const filePath = path.join(tempDir, fileName);
           await fs.writeFile(filePath, audioBuffer);
           fileList.push(`file '${fileName}'`);
+
+          const durationInMs = getMp3Duration(audioBuffer);
+          segments.push({ id: item.id, duration: durationInMs / 1000 });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(`Error processing item ${i} ("${item.text}"):`, err);
+        errors.push(err.message);
       }
     }
 
     if (fileList.length === 0) {
-      return new NextResponse(JSON.stringify({ error: 'No valid audio could be generated.' }), { status: 400 });
+      const errorMessage = errors.length > 0 ? `All TTS requests failed. Errors: ${errors.join(', ')}` : 'No valid audio could be generated.';
+      return new NextResponse(JSON.stringify({ error: errorMessage }), { status: 400 });
     }
     
     const fileListPath = path.join(tempDir, 'filelist.txt');
     await fs.writeFile(fileListPath, fileList.join('\n'));
     
-    const outputPath = path.join(tempDir, 'merged.mp3');
+    const mergedFileName = `merged-${uuidv4()}.mp3`;
+    const outputPath = path.join(tempDir, mergedFileName);
 
     if (!ffmpegPath) {
         throw new Error("ffmpeg path is not configured.");
@@ -91,16 +98,19 @@ export async function POST(req: NextRequest) {
         '-c', 'copy',
         outputPath
     ];
-    // Set the working directory for ffmpeg to the temp directory
     await execFilePromise(ffmpegPath, mergeArgs, { cwd: tempDir }); 
     
     const mergedAudioBuffer = await fs.readFile(outputPath);
+
+    // Save the merged file to a public directory to be served
+    const publicDir = path.join(process.cwd(), 'public', 'generated_audio');
+    await fs.mkdir(publicDir, { recursive: true });
+    const publicFilePath = path.join(publicDir, mergedFileName);
+    await fs.writeFile(publicFilePath, mergedAudioBuffer);
+
+    const audioUrl = `/generated_audio/${mergedFileName}`;
     
-    const headers = new Headers();
-    headers.set('Content-Type', 'audio/mpeg');
-    
-    // We are now sending the raw audio blob back
-    return new Response(mergedAudioBuffer as any, { headers });
+    return NextResponse.json({ audioUrl, segments });
 
   } catch (error: any) {
     console.error('[FATAL] Error during TTS merge process:', error);

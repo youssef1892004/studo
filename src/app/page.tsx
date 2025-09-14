@@ -5,18 +5,34 @@ import { useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { fetchVoices } from '@/lib/tts';
-import { Voice, TTSCardData } from '@/lib/types';
-import VoiceCard from '@/components/VoiceCard';
+import { Voice, TTSCardData, Segment } from '@/lib/types';
 import AudioPlayer from '@/components/AudioPlayer';
+import Timeline from '@/components/Timeline';
 import { Plus, LoaderCircle, Play, Orbit } from 'lucide-react';
 import { AuthContext } from '@/contexts/AuthContext';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import SortableVoiceCard from '@/components/SortableVoiceCard';
 
 
 export default function Home() {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [cards, setCards] = useState<TTSCardData[]>([]);
   
-  const [mergedAudioBlob, setMergedAudioBlob] = useState<Blob | null>(null);
+  const [mergedAudioUrl, setMergedAudioUrl] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +40,13 @@ export default function Home() {
   const authContext = useContext(AuthContext);
   const router = useRouter();
   
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // Page Protection Logic
   useEffect(() => {
     if (!authContext) return;
@@ -40,7 +63,7 @@ export default function Home() {
         const fetchedVoices = await fetchVoices();
         setVoices(fetchedVoices);
         if (fetchedVoices.length > 0) {
-          setCards([{ id: uuidv4(), text: 'مرحبًا بك في محرر الصوت.', voice: fetchedVoices[0].name }]);
+          setCards([{ id: uuidv4(), text: 'مرحبًا بك في محرر الصوت.', voice: fetchedVoices[0].name, duration: 0 }]);
         }
       } catch (err) {
         setError('Could not load voices. Please try refreshing the page.');
@@ -53,7 +76,7 @@ export default function Home() {
 
   const addCard = () => {
     if (voices.length > 0) {
-      setCards([...cards, { id: uuidv4(), text: '', voice: voices[0].name }]);
+      setCards([...cards, { id: uuidv4(), text: '', voice: voices[0].name, duration: 0 }]);
     }
   };
 
@@ -65,6 +88,19 @@ export default function Home() {
     setCards(cards.filter(card => card.id !== id));
   };
 
+  function handleDragEnd(event: DragEndEvent) {
+    const {active, over} = event;
+    
+    if (over && active.id !== over.id) {
+      setCards((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  }
+
   const handleGenerateAll = async () => {
     const itemsToGenerate = cards.filter(card => card.text.trim() !== '');
     if (itemsToGenerate.length === 0) {
@@ -74,7 +110,7 @@ export default function Home() {
 
     setIsLoading(true);
     setError(null);
-    setMergedAudioBlob(null);
+    setMergedAudioUrl(null);
 
     try {
       const response = await fetch('/api/tts/merge', {
@@ -88,8 +124,22 @@ export default function Home() {
         throw new Error(errData.error || 'Failed to generate merged audio.');
       }
 
-      const blob = await response.blob();
-      setMergedAudioBlob(blob);
+      const { audioUrl, segments } = await response.json();
+
+      setMergedAudioUrl(audioUrl);
+
+      const durationMap = new Map<string, number>(segments.map((segment: Segment) => [segment.id, segment.duration]));
+
+      // Update the cards with the duration
+      setCards(prevCards =>
+        prevCards.map(card => {
+          const newDuration = durationMap.get(card.id);
+          return {
+            ...card,
+            duration: typeof newDuration === 'number' ? newDuration : card.duration || 0,
+          };
+        })
+      );
 
     } catch (err: any) {
       setError(err.message);
@@ -97,6 +147,8 @@ export default function Home() {
       setIsLoading(false);
     }
   };
+
+  const totalDuration = cards.reduce((acc, card) => acc + (card.duration || 0), 0);
 
   // Loading screen while checking auth
   if (!authContext || authContext.isLoading || !authContext.user) {
@@ -127,29 +179,41 @@ export default function Home() {
         )}
 
         {voices.length > 0 ? (
-          <div className="space-y-6">
-            {cards.map((card) => (
-              <VoiceCard
-                key={card.id}
-                cardData={card}
-                voices={voices}
-                onUpdate={updateCard}
-                onRemove={removeCard}
-              />
-            ))}
-            <div className="flex justify-center">
-              <button
-                onClick={addCard}
-                className="flex items-center justify-center w-16 h-16 bg-white border-2 border-dashed border-gray-300 rounded-full text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-all duration-300"
-                aria-label="Add new text-to-speech card"
-              >
-                <Plus size={32} />
-              </button>
-            </div>
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={cards}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-6">
+                {cards.map((card) => (
+                  <SortableVoiceCard
+                    key={card.id}
+                    cardData={card}
+                    voices={voices}
+                    onUpdate={updateCard}
+                    onRemove={removeCard}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         ) : !error && (
           <div className="text-center text-gray-500">Loading voices...</div>
         )}
+
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={addCard}
+            className="flex items-center justify-center w-16 h-16 bg-white border-2 border-dashed border-gray-300 rounded-full text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-all duration-300"
+            aria-label="Add new text-to-speech card"
+          >
+            <Plus size={32} />
+          </button>
+        </div>
 
         <div className="mt-8 flex justify-center">
             <button
@@ -165,11 +229,12 @@ export default function Home() {
             </button>
         </div>
 
-        {mergedAudioBlob && (
+        {mergedAudioUrl && (
           <section className="mt-12">
             <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Merged Audio Result</h2>
-            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                <AudioPlayer audioBlob={mergedAudioBlob} />
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 space-y-4">
+              <Timeline cards={cards} totalDuration={totalDuration} />
+              <AudioPlayer audioUrl={mergedAudioUrl} />
             </div>
           </section>
         )}
