@@ -1,14 +1,14 @@
 // File path: src/app/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Cairo } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
-import Navbar from "@/components/Navbar";
+import Navbar from "@/components/Navbar"; // التأكد من وجود هذا الاستيراد
 
-const inter = Inter({ subsets: ["latin"] });
+const cairo = Cairo({ subsets: ["arabic"] });
 
 export const metadata: Metadata = {
-  title: "Arabic TTS",
+  title: "Studo - Arabic TTS",
   description: "Generate Arabic speech from text.",
 };
 
@@ -19,9 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={inter.className}>
+      <body className={cairo.className}>
         <AuthProvider>
-            <Navbar />
+            <Navbar /> {/* --- === إعادة تفعيل شريط التنقل === --- */}
             {children}
         </AuthProvider>
       </body>

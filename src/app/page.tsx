@@ -1,45 +1,42 @@
-// File path: src/app/page.tsx
 'use client';
 
 import { useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { fetchVoices } from '@/lib/tts';
-import { Voice, TTSCardData, Segment } from '@/lib/types';
+import { Voice, TTSCardData } from '@/lib/types';
 import AudioPlayer from '@/components/AudioPlayer';
-import Timeline from '@/components/Timeline';
-import { Plus, LoaderCircle, Play, Orbit } from 'lucide-react';
+import SettingsSidebar from '@/components/SettingsSidebar';
+import { LoaderCircle, Orbit, Plus } from 'lucide-react'; // تم إزالة Download لأنها موجودة في Navbar
 import { AuthContext } from '@/contexts/AuthContext';
+import SortableEditorBlock from '@/components/SortableEditorBlock';
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
   DragEndEvent,
+  useSensor,
+  PointerSensor,
+  KeyboardSensor,
+  useSensors,
 } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import SortableVoiceCard from '@/components/SortableVoiceCard';
-
 
 export default function Home() {
+  // ... (كل الأكواد والحالات السابقة تبقى كما هي)
   const [voices, setVoices] = useState<Voice[]>([]);
   const [cards, setCards] = useState<TTSCardData[]>([]);
-  
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [mergedAudioUrl, setMergedAudioUrl] = useState<string | null>(null);
-
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const authContext = useContext(AuthContext);
   const router = useRouter();
-  
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -47,15 +44,13 @@ export default function Home() {
     })
   );
 
-  // Page Protection Logic
+  const activeCard = cards.find(c => c.id === activeCardId);
+
   useEffect(() => {
-    if (!authContext) return;
-    
-    if (!authContext.isLoading && !authContext.user) {
+    if (!authContext?.isLoading && !authContext?.user) {
       router.push('/login');
     }
   }, [authContext, router]);
-
 
   useEffect(() => {
     async function loadVoices() {
@@ -63,48 +58,81 @@ export default function Home() {
         const fetchedVoices = await fetchVoices();
         setVoices(fetchedVoices);
         if (fetchedVoices.length > 0) {
-          setCards([{ id: uuidv4(), text: 'مرحبًا بك في محرر الصوت.', voice: fetchedVoices[0].name, duration: 0 }]);
+          const firstCardId = uuidv4();
+          const initialData = {
+              time: new Date().getTime(),
+              blocks: [
+                  {
+                      id: uuidv4(),
+                      type: 'paragraph',
+                      data: { text: 'بنية تحتية سحابية تعيد تعريف الخصوصية والأداء والموثوقية الرقمية العربية، بدون تعقيد، بدون تنازلات.' },
+                  },
+              ],
+          };
+          setCards([{ id: firstCardId, voice: fetchedVoices[1].name, data: initialData }]);
+          setActiveCardId(firstCardId);
         }
       } catch (err) {
-        setError('Could not load voices. Please try refreshing the page.');
+        setError('Could not load voices.');
       }
     }
     if (authContext?.user) {
-        loadVoices();
+      loadVoices();
     }
   }, [authContext?.user]);
 
   const addCard = () => {
     if (voices.length > 0) {
-      setCards([...cards, { id: uuidv4(), text: '', voice: voices[0].name, duration: 0 }]);
+      const newCardId = uuidv4();
+      const newCard: TTSCardData = {
+        id: newCardId,
+        voice: voices[0].name,
+        data: {
+          time: new Date().getTime(),
+          blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: '' } }],
+        },
+      };
+      setCards([...cards, newCard]);
+      setActiveCardId(newCardId);
     }
   };
-
+  
   const updateCard = (id: string, data: Partial<TTSCardData>) => {
-    setCards(cards.map(card => card.id === id ? { ...card, ...data } : card));
+    setCards(cards.map(card => (card.id === id ? { ...card, ...data } : card)));
   };
 
   const removeCard = (id: string) => {
-    setCards(cards.filter(card => card.id !== id));
+    setCards(prev => prev.filter(card => card.id !== id));
+  };
+  
+  const handleApplyVoice = (voiceName: string) => {
+    if (activeCardId) {
+      updateCard(activeCardId, { voice: voiceName });
+    }
   };
 
   function handleDragEnd(event: DragEndEvent) {
-    const {active, over} = event;
-    
+    const { active, over } = event;
     if (over && active.id !== over.id) {
       setCards((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        
         return arrayMove(items, oldIndex, newIndex);
       });
     }
   }
 
-  const handleGenerateAll = async () => {
-    const itemsToGenerate = cards.filter(card => card.text.trim() !== '');
+  const handleGenerate = async () => {
+    const itemsToGenerate = cards
+      .map(card => ({
+        id: card.id,
+        text: card.data.blocks.map(block => block.data.text).join(' ').trim(),
+        voice: card.voice,
+      }))
+      .filter(item => item.text.length > 0);
+
     if (itemsToGenerate.length === 0) {
-      setError('Please enter some text in at least one card.');
+      setError('Please enter some text before generating.');
       return;
     }
 
@@ -120,27 +148,11 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: 'An unknown error occurred on the server.' }));
+        const errData = await response.json().catch(() => ({ error: 'An unknown server error occurred.' }));
         throw new Error(errData.error || 'Failed to generate merged audio.');
       }
-
-      const { audioUrl, segments } = await response.json();
-
+      const { audioUrl } = await response.json();
       setMergedAudioUrl(audioUrl);
-
-      const durationMap = new Map<string, number>(segments.map((segment: Segment) => [segment.id, segment.duration]));
-
-      // Update the cards with the duration
-      setCards(prevCards =>
-        prevCards.map(card => {
-          const newDuration = durationMap.get(card.id);
-          return {
-            ...card,
-            duration: typeof newDuration === 'number' ? newDuration : card.duration || 0,
-          };
-        })
-      );
-
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -148,98 +160,69 @@ export default function Home() {
     }
   };
 
-  const totalDuration = cards.reduce((acc, card) => acc + (card.duration || 0), 0);
-
-  // Loading screen while checking auth
-  if (!authContext || authContext.isLoading || !authContext.user) {
-    return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-            <Orbit className="w-12 h-12 animate-spin text-indigo-600" />
-        </div>
-    );
+  if (authContext?.isLoading || !authContext?.user) {
+    return <div className="flex items-center justify-center min-h-screen"><Orbit className="w-12 h-12 animate-spin" /></div>;
   }
-
+  
+  // --- === التعديل الرئيسي هنا: تعديل الـ Layout === ---
   return (
-    <main className="flex min-h-screen flex-col items-center bg-gray-50 p-4 sm:p-8 md:p-12">
-      <div className="w-full max-w-4xl">
-        <header className="text-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-800">
-            Arabic TTS Merger
-          </h1>
-          <p className="text-lg text-gray-600 mt-2">
-            Combine multiple text blocks into a single audio file.
-          </p>
-        </header>
+    <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-100 font-sans"> {/* Navbar height is 4rem */}
+      
+      {/* --- 🛑 تم حذف الـ Header من هنا --- */}
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
-            <strong className="font-bold">Error: </strong>
-            <span className="block sm:inline">{error}</span>
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="w-72 bg-white border-r border-gray-200 flex-shrink-0">
+          <SettingsSidebar voices={voices} onApplyVoice={handleApplyVoice} activeVoiceName={activeCard?.voice} />
+        </aside>
+
+        <main className="flex-1 flex flex-col p-6 lg:p-10 overflow-y-auto">
+          {/* --- Generate Button moved inside the main content area --- */}
+          <div className="flex justify-between items-center mb-6 max-w-4xl mx-auto w-full">
+            <h2 className="text-2xl font-bold text-gray-800">Untitled Project</h2>
+            <button
+                onClick={handleGenerate}
+                disabled={isLoading}
+                className="flex items-center justify-center px-6 py-2 bg-gray-800 text-white font-semibold rounded-md shadow-sm hover:bg-black disabled:bg-gray-400"
+              >
+              {isLoading ? <LoaderCircle className="animate-spin" /> : 'Generate'}
+            </button>
           </div>
-        )}
 
-        {voices.length > 0 ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={cards}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-6">
+          <div className="w-full max-w-4xl mx-auto bg-white p-4 rounded-lg shadow-sm">
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
                 {cards.map((card) => (
-                  <SortableVoiceCard
+                  <SortableEditorBlock
                     key={card.id}
                     cardData={card}
                     voices={voices}
                     onUpdate={updateCard}
                     onRemove={removeCard}
+                    isActive={activeCardId === card.id}
+                    onClick={setActiveCardId}
                   />
                 ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        ) : !error && (
-          <div className="text-center text-gray-500">Loading voices...</div>
-        )}
-
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={addCard}
-            className="flex items-center justify-center w-16 h-16 bg-white border-2 border-dashed border-gray-300 rounded-full text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-all duration-300"
-            aria-label="Add new text-to-speech card"
-          >
-            <Plus size={32} />
-          </button>
-        </div>
-
-        <div className="mt-8 flex justify-center">
-            <button
-                onClick={handleGenerateAll}
-                disabled={isLoading || cards.length === 0}
-                className="flex items-center justify-center px-8 py-4 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200 text-lg"
-            >
-                {isLoading ? (
-                    <><LoaderCircle className="animate-spin mr-3" /> Generating...</>
-                ) : (
-                    <><Play className="mr-3" /> Generate All</>
-                )}
-            </button>
-        </div>
-
-        {mergedAudioUrl && (
-          <section className="mt-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Merged Audio Result</h2>
-            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 space-y-4">
-              <Timeline cards={cards} totalDuration={totalDuration} />
-              <AudioPlayer audioUrl={mergedAudioUrl} />
+              </SortableContext>
+            </DndContext>
+            <div className="flex justify-center mt-4">
+              <button onClick={addCard} className="p-2 text-gray-400 hover:text-blue-500"><Plus size={24} /></button>
             </div>
-          </section>
-        )}
+          </div>
+           {error && (
+            <div className="max-w-4xl mx-auto mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg" role="alert">
+              <span>{error}</span>
+            </div>
+          )}
+        </main>
       </div>
-    </main>
+
+      {mergedAudioUrl && (
+        <footer className="bg-white border-t p-4 shadow-inner flex-shrink-0">
+          <div className="max-w-4xl mx-auto">
+            <AudioPlayer audioUrl={mergedAudioUrl} />
+          </div>
+        </footer>
+      )}
+    </div>
   );
 }
-

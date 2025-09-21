@@ -1,36 +1,45 @@
 'use client';
 
-import { TTSCardData } from '@/lib/types';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import VoiceCard from './VoiceCard';
+import { Voice, TTSCardData } from '@/lib/types';
+import { GripVertical } from 'lucide-react';
 
-interface TimelineProps {
-  cards: TTSCardData[];
-  totalDuration: number;
+interface SortableVoiceCardProps {
+  cardData: TTSCardData;
+  voices: Voice[];
+  onUpdate: (id: string, data: Partial<TTSCardData>) => void;
+  onRemove: (id: string) => void;
 }
 
-export default function Timeline({ cards, totalDuration }: TimelineProps) {
-  if (cards.length === 0 || totalDuration === 0) {
-    return null;
-  }
+export default function SortableVoiceCard(props: SortableVoiceCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.cardData.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    // positioning relative to allow the handle to be placed correctly
+    position: 'relative' as 'relative',
+  };
 
   return (
-    <div className="w-full bg-gray-200 rounded-lg h-16 flex overflow-hidden border border-gray-300">
-      {cards.map((card, index) => {
-        const percentage = (card.duration || 0) / totalDuration * 100;
-        if (percentage === 0) return null;
-
-        return (
-          <div
-            key={card.id}
-            className={`h-full flex items-center justify-center border-r border-gray-300 last:border-r-0 bg-blue-200 hover:bg-blue-300 transition-colors duration-200`}
-            style={{ width: `${percentage}%` }}
-            title={`${card.text.substring(0, 50)}... (${(card.duration || 0).toFixed(2)}s)`}
-          >
-            <span className="text-xs font-medium text-blue-800 px-2 truncate">
-              {card.text}
-            </span>
-          </div>
-        );
-      })}
+    <div ref={setNodeRef} style={style} {...attributes} >
+        <div className="flex items-start gap-4">
+           {/* Drag Handle */}
+          <button {...listeners} className="flex-shrink-0 p-2 mt-8 text-gray-400 cursor-grab active:cursor-grabbing touch-none">
+              <GripVertical />
+          </button>
+          <VoiceCard {...props} />
+        </div>
     </div>
   );
 }

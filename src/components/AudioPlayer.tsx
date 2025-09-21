@@ -1,78 +1,67 @@
 'use client';
-
-import dynamic from 'next/dynamic';
+import { Play, Pause, RotateCcw } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { useVoiceVisualizer } from 'react-voice-visualizer';
 
-const VoiceVisualizer = dynamic(
-  () => import('react-voice-visualizer').then(mod => mod.VoiceVisualizer),
-  { ssr: false,
-    loading: () => <p className="text-center text-gray-500">Loading Visualizer...</p>
-  }
-);
-
-interface AudioPlayerProps {
-  audioUrl: string;
-}
-
-const AudioPlayer = ({ audioUrl }: AudioPlayerProps) => {
-  const controls = useVoiceVisualizer();
-  const { setPreloadedAudioBlob, clearCanvas } = controls;
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const controlsRef = useRef(controls);
-  controlsRef.current = controls;
+const AudioPlayer = ({ audioUrl }: { audioUrl: string }) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
-    if (audioUrl) {
-      const fetchAudio = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const response = await fetch(audioUrl);
-          if (!response.ok) {
-            throw new Error('Failed to fetch audio');
-          }
-          const blob = await response.blob();
-          controlsRef.current.setPreloadedAudioBlob(blob);
-        } catch (err: any) {
-          setError(err.message);
-          controlsRef.current.clearCanvas();
-        } finally {
-          setIsLoading(false);
-        }
+    const audio = audioRef.current;
+    if (audio) {
+      const setAudioData = () => {
+        setDuration(audio.duration);
+        setCurrentTime(audio.currentTime);
+      }
+      const setAudioTime = () => setCurrentTime(audio.currentTime);
+      const onEnded = () => setIsPlaying(false);
+
+      audio.addEventListener('loadeddata', setAudioData);
+      audio.addEventListener('timeupdate', setAudioTime);
+      audio.addEventListener('ended', onEnded);
+      return () => {
+        audio.removeEventListener('loadeddata', setAudioData);
+        audio.removeEventListener('timeupdate', setAudioTime);
+        audio.removeEventListener('ended', onEnded);
       };
-      fetchAudio();
-    } else {
-        controlsRef.current.clearCanvas();
     }
   }, [audioUrl]);
 
-  if (isLoading) {
-    return <p className="text-center text-gray-500">Loading audio...</p>;
-  }
-  
-  if (error) {
-      return <p className="text-center text-red-500">Error: {error}</p>;
-  }
+  const togglePlayPause = () => {
+    const audio = audioRef.current;
+    if (audio) {
+      if (isPlaying) {
+        audio.pause();
+      } else {
+        audio.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
 
-  if (!audioUrl) {
-    return null;
-  }
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   return (
-    <div className="w-full">
-      <VoiceVisualizer
-        controls={controls}
-        mainBarColor="#4f46e5"
-        secondaryBarColor="#a5b4fc"
-        backgroundColor="#f3f4f6"
-        barWidth={4}
-        gap={2}
-      />
+    <div className="w-full flex items-center gap-4 p-2 bg-gray-100 rounded-lg">
+      <audio ref={audioRef} src={audioUrl} preload="metadata"></audio>
+      <button onClick={togglePlayPause} className="p-2 bg-black text-white rounded-full">
+        {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+      </button>
+      <div className="text-sm font-mono text-gray-600">{formatTime(currentTime)}</div>
+      <div className="w-full bg-gray-300 h-1 rounded-full overflow-hidden">
+        <div
+          className="bg-black h-full"
+          style={{ width: `${(currentTime / duration) * 100}%` }}
+        />
+      </div>
+      <div className="text-sm font-mono text-gray-600">{formatTime(duration)}</div>
     </div>
   );
 };
-
 export default AudioPlayer;
