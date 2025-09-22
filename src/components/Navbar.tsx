@@ -1,44 +1,39 @@
-// File path: src/components/Navbar.tsx
 'use client';
 
 import { useContext } from 'react';
 import Link from 'next/link';
-import { AuthContext } from '../contexts/AuthContext'; // تصحيح المسار هنا
+import { AuthContext } from '../contexts/AuthContext';
 import { LogOut, User as UserIcon, LogIn, UserPlus } from 'lucide-react';
 
 export default function Navbar() {
   const authContext = useContext(AuthContext);
 
   if (!authContext) {
-    // This case should ideally not be reached if the provider is set up correctly in layout.tsx
     return null; 
   }
 
   const { user, logout, isLoading } = authContext;
 
-  // Return a placeholder or loading indicator during the initial auth check
   if (isLoading) {
+    // ... (كود حالة التحميل كما هو)
     return (
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex-shrink-0">
-              <Link href="/" className="text-2xl font-bold text-gray-800">
-                Studo
-              </Link>
+      <header className="bg-white shadow-sm sticky top-0 z-50 h-16">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full">
+            <div className="flex justify-between items-center h-full">
+                 <div className="h-8 w-24 bg-gray-200 rounded-md animate-pulse"></div>
+                 <div className="h-8 w-24 bg-gray-200 rounded-md animate-pulse"></div>
             </div>
-            <div className="h-8 w-24 bg-gray-200 rounded-md animate-pulse"></div>
-          </div>
         </div>
       </header>
     );
   }
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <header className="bg-white shadow-sm sticky top-0 z-50 h-16">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full">
+        <div className="flex justify-between items-center h-full">
           <div className="flex-shrink-0">
+            {/* --- === تم تحديث الرابط هنا === --- */}
             <Link href="/" className="text-2xl font-bold text-gray-800">
               Studo
             </Link>
@@ -77,4 +72,3 @@ export default function Navbar() {
     </header>
   );
 }
-

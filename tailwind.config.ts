@@ -8,20 +8,34 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
-        'brand-blue': '#1a73e8',
-        'brand-gray': {
-          50: '#f7f7f7',
-          100: '#e5e5e5',
-          200: '#cccccc',
-          300: '#b2b2b2',
-          400: '#999999',
-          500: '#7f7f7f',
-          600: '#666666',
-          700: '#4c4c4c',
-          800: '#333333',
-          900: '#191919',
+      keyframes: {
+        fadeInDown: {
+          '0%': { opacity: '0', transform: 'translateY(-30px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        fadeInUp: {
+            '0%': { opacity: '0', transform: 'translateY(30px)' },
+            '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeInScale: {
+            '0%': { opacity: '0', transform: 'scale(0.95)' },
+            '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        float: {
+            '0%, 100%': { transform: 'translateY(0px)' },
+            '50%': { transform: 'translateY(-5px)' },
+        },
+        glow: {
+            '0%, 100%': { boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' },
+            '50%': { boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2), 0 10px 20px -5px rgba(0, 0, 0, 0.1)' },
+        }
+      },
+      animation: {
+        'fade-in-down': 'fadeInDown 0.8s ease-out forwards',
+        'fade-in-up': 'fadeInUp 0.8s ease-out 0.3s forwards',
+        'fade-in-scale': 'fadeInScale 0.8s ease-out 0.6s forwards',
+        'float': 'float 3s ease-in-out infinite',
+        'glow': 'glow 2s ease-in-out infinite',
       },
     },
   },

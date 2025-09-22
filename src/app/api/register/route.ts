@@ -1,4 +1,3 @@
-// File path: src/app/api/register/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 
@@ -26,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     const INSERT_USER_MUTATION = `
       mutation insertUser($object: users_insert_input!) {
-        insertUser(object: $object) { id email displayName }
+        insert_users_one(object: $object) { id email displayName }
       }
     `;
 
@@ -51,14 +50,13 @@ export async function POST(request: NextRequest) {
 
     const hasuraData = await hasuraResponse.json();
     if (hasuraData.errors) {
-        // Handle specific error for unique constraint violation
         if (hasuraData.errors[0]?.extensions?.code === 'constraint-violation') {
              throw new Error('هذا البريد الإلكتروني مسجل بالفعل.');
         }
         throw new Error(hasuraData.errors[0].message);
     }
 
-    return jsonResponse(hasuraData.data.insertUser, 201);
+    return jsonResponse(hasuraData.data.insert_users_one, 201);
   } catch (error: any) {
     return jsonResponse({ message: error.message || 'An unexpected error occurred' }, 500);
   }
