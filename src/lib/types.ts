@@ -11,6 +11,7 @@ export interface TTSCardData {
   id: string;
   voice: string;
   data: OutputData; // بيانات من Editor.js
+  text?: string;
 }
 
 export interface TTSRequestItem {
