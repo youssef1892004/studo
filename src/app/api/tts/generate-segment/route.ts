@@ -1,10 +1,7 @@
-// src/app/api/tts/generate-segment/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import getMP3Duration from 'get-mp3-duration';
 
-// --- Helper function to get the access token ---
+// دالة مساعدة للحصول على توكن الوصول
 async function getAccessToken() {
-  // ... (نفس دالة getAccessToken الموجودة في ملفات API الأخرى)
   if (!process.env.TTS_API_BASE_URL || !process.env.TTS_API_USERNAME || !process.env.TTS_API_PASSWORD) {
     throw new Error("TTS Service environment variables are not configured");
   }
@@ -17,11 +14,16 @@ async function getAccessToken() {
     }),
     cache: 'no-store',
   });
-  if (!response.ok) throw new Error('Could not validate credentials');
+  if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("TTS Token Auth Failed:", errorBody);
+      throw new Error('Could not validate credentials with TTS service');
+  }
   const data = await response.json();
   return data.access_token;
 }
 
+// --- (تعديل جذري) هذه الدالة ستقوم فقط بإنشاء المهمة وإعادة رقمها فورًا ---
 export async function POST(request: NextRequest) {
   try {
     const { text, voice } = await request.json();
@@ -32,49 +34,22 @@ export async function POST(request: NextRequest) {
     const token = await getAccessToken();
     const payload = { blocks: [{ text, provider: "ghaymah", voice }] };
 
-    // 1. Create Job
+    // 1. إنشاء المهمة وإعادة رقمها فورًا
     const jobResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(payload),
       cache: 'no-store',
     });
+    
     const jobData = await jobResponse.json();
-    if (!jobResponse.ok) throw new Error(jobData.detail || 'Failed to create TTS job');
-    const { job_id } = jobData;
-
-    // 2. Poll for status
-    let status = '';
-    while (status !== 'completed' && status !== 'failed') {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const statusResponse = await fetch(`${process.env.TTS_API_BASE_URL}/status/${job_id}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      const statusData = await statusResponse.json();
-      status = statusData.status;
+    if (!jobResponse.ok) {
+        console.error("Error creating TTS job on external service:", jobData);
+        throw new Error(jobData.detail || 'Failed to create TTS job');
     }
 
-    if (status === 'failed') throw new Error('Segment generation failed');
-
-    // 3. Fetch result audio
-    const audioResponse = await fetch(`${process.env.TTS_API_BASE_URL}/result/${job_id}/audio`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        cache: 'no-store',
-    });
-    if (!audioResponse.ok) throw new Error('Failed to fetch audio file');
-
-    const audioBuffer = await audioResponse.arrayBuffer();
-    const duration = getMP3Duration(Buffer.from(audioBuffer));
-
-    // 4. Return audio blob with duration in header
-    return new NextResponse(audioBuffer, {
-        status: 200,
-        headers: { 
-            'Content-Type': 'audio/mpeg',
-            'X-Audio-Duration': (duration / 1000).toString() // تحويل من ميلي ثانية إلى ثانية
-        },
-    });
+    // 2. إرجاع بيانات المهمة مباشرة للمتصفح
+    return NextResponse.json(jobData);
 
   } catch (error: any) {
     console.error("Error in /api/tts/generate-segment route:", error.message);

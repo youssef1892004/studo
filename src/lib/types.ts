@@ -15,6 +15,9 @@ export interface TTSCardData {
   voice: string;
   data: OutputData;
   text?: string;
+  audioUrl?: string;
+  duration?: number;
+  isGenerating?: boolean;
 }
 
 export interface TTSRequestItem {
