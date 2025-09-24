@@ -42,3 +42,13 @@ export interface HasuraUser {
     passwordHash: string;
     roles: { role: string }[];
 }
+export interface TTSCardData {
+  id: string;
+  voice: string;
+  data: OutputData;
+  text?: string;
+  // --- === خصائص جديدة للشريط الزمني === ---
+  audioUrl?: string;      // رابط المقطع الصوتي الخاص بهذه الفقرة
+  duration?: number;      // مدة المقطع بالثواني
+  isGenerating?: boolean; // لتتبع حالة توليد الصوت لهذه الفقرة
+}

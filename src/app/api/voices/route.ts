@@ -3,54 +3,104 @@
 import { NextResponse } from 'next/server';
 import { Voice } from '@/lib/types';
 
-// القائمة الكاملة والدقيقة من ملف PDF لتحديد الجنس
+// --- القائمة النهائية والدقيقة لتحديد الجنس باستخدام معرف الصوت (Voice ID) ---
 const voiceGenderMap: Record<string, Voice['gender']> = {
-    // Arabic Voices
-    "Amina": "Female", "Ismael": "Male", "Ali": "Male", "Laila": "Female",
-    "Salma": "Female", "Shakir": "Male", "Bassel": "Male", "Rana": "Female",
-    "Sana": "Female", "Taim": "Male", "Fahed": "Male", "Noura": "Female",
-    "Layla": "Female", "Rami": "Male", "Iman": "Female", "Omar": "Male",
-    "Jamal": "Male", "Mouna": "Female", "Abdullah": "Male", "Aysha": "Female",
-    "Amal": "Female", "Moaz": "Male", "Hamed": "Male", "Zariyah": "Female",
-    "Amany": "Female", "Laith": "Male", "Hedi": "Male", "Reem": "Female",
-    "Fatima": "Female", "Hamdan": "Male", "Maryam": "Female", "Saleh": "Male",
+    // Custom English Voices
+    "21m00Tcm4TlvDq8ikWAM": "Female", // Rachel
+    "2EiwWnXFnvU5JabPnv8n": "Male",   // Clyde
+    "CwhRBWXzGAHq8TQ4": "Male",       // Roger
+    "IKne3meq5aSn9XLyUdCD": "Male",   // Charlie
+    "XB0fDUnXU5powFXDhCwa": "Female", // Charlotte
+    "LcfcDJNUP1GQjkzn1xUU": "Female", // Emily
+    "pFZP5JQG7iQjIQuC4Bku": "Female", // Serena
+    "pNInz6obpgDQGcFmaJgB": "Male",   // Adam
+    "piTKgcLEGmPE4e6mEKli": "Female", // Nicole
+    "txGEqnHWrfWFTfGW9XjX": "Female", // Jessica
+    "yoZ06aMxZJJ28mfd3POQ": "Male",   // Sam
+    "z9fAnlkpzviPz146aGWa": "Female", // Glinda
+    "onwK4e9ZLuTAKqWW03F9": "Male",   // Brian
+    "JBFqnCBsd6RMkjVDRZzb": "Male",   // Chris
+    "cjVigY5qzO86Huf0OWal": "Male",   // Eric
+    "g5CIjZEefAph4nQFvHAz": "Male",   // Ethan
+    "J6BwR6CZkQd0atAWU0b8": "Male",   // George
+    "VR6AewLTigWG4xSOukaG": "Male",   // Paul
+    "EXAVITQu4vr4xnSDxMaL": "Female", // Sarah
+    "D38z5RcWu1voky8WS1ja": "Male",   // Bill
+    "FGY2WhTYpPnrIDTdsKH5": "Female", // Laura
 
-    // Other Voices from PDF
-    'Adri': 'Female', 'Willem': 'Male', 'Anila': 'Female', 'Ilir': 'Male',
-    'Ameha': 'Male', 'Mekdes': 'Female', 'Babek': 'Male', 'Banu': 'Female',
-    'Nabanita': 'Female', 'Pradeep': 'Male', 'Bashkar': 'Male', 'Tanishaa': 'Female',
-    'Goran': 'Male', 'Vesna': 'Female', 'Borislav': 'Male', 'Kalina': 'Female',
-    'Nilar': 'Female', 'Thiha': 'Male', 'Alba': 'Female', 'Enric': 'Male',
-    'HiuGaai': 'Female', 'WanLung': 'Male', 'Xiaoxiao': 'Female', 'Yunxi': 'Male',
-    'Yunjian': 'Male', 'Yunyang': 'Male', 'Xiaobei': 'Female', 'Xiaoni': 'Female',
-    'HiuMaan': 'Female', 'HsiaoChen': 'Female', 'YunJhe': 'Male', 'HsiaoYu': 'Female',
-    'Gabrijela': 'Female', 'Srecko': 'Male', 'Antonin': 'Male', 'Vlasta': 'Female',
-    'Christel': 'Female', 'Jeppe': 'Male', 'Arnaud': 'Male', 'Dena': 'Female',
-    'Colette': 'Female', 'Fenna': 'Female', 'Maarten': 'Male', 'Natasha': 'Female', 
-    'William': 'Male', 'Clara': 'Female', 'Liam': 'Male', 'Sam': 'Male', 
-    'Yan': 'Female', 'Neerja': 'Female', 'Prabhat': 'Male', 'Emily': 'Female', 
-    'Connor': 'Male', 'Asilia': 'Female', 'Chilemba': 'Male', 'Mitchell': 'Male', 
-    'Molly': 'Female', 'Abeo': 'Male', 'Ezinne': 'Female', 'James': 'Male', 
-    'Rosa': 'Female', 'Luna': 'Female', 'Wayne': 'Male', 'Leah': 'Female', 
-    'Luke': 'Male', 'Elimu': 'Male', 'Imani': 'Female', 'Libby': 'Female', 
-    'Maisie': 'Female', 'Ryan': 'Male', 'Sonia': 'Female', 'Thomas': 'Male', 
-    'Ana': 'Female', 'Aria': 'Female', 'Christopher': 'Male', 'Eric': 'Male', 
-    'Guy': 'Male', 'Jenny': 'Female', 'Michelle': 'Female', 'Roger': 'Male', 
-    'Steffan': 'Male', 'Anu': 'Female', 'Kert': 'Male', 'Angelo': 'Male', 
-    'Blessica': 'Female', 'Harri': 'Male', 'Noora': 'Female', 'Charline': 'Female', 
-    'Gerard': 'Male', 'Antoine': 'Male', 'Jean': 'Male', 'Sylvie': 'Female', 
-    'Thierry': 'Male', 'Alain': 'Male', 'Brigitte': 'Female', 'Celeste': 'Female', 
-    'Claude': 'Male', 'Coralie': 'Female', 'Denise': 'Female', 'Eloise': 'Female', 
-    'Henri': 'Male', 'Jacques': 'Male', 'Jerome': 'Male', 'Julie': 'Female', 
-    'Paul': 'Male', 'Vivienne': 'Female', 'Ingrid': 'Female', 'Jonas': 'Male', 
-    'Jan': 'Male', 'Leni': 'Female', 'Amala': 'Female', 'Conrad': 'Male', 
-    'Katja': 'Female', 'Killian': 'Male', 'Klarissa': 'Female', 'Klaus': 'Male', 
-    'Louisa': 'Female', 'Maja': 'Female', 'Ralf': 'Male', 'Tanja': 'Female', 
-    'Athina': 'Female', 'Nestoras': 'Male', 'Diego': 'Male', 'Elsa': 'Female',
-    'Rachel': 'Female', 'Clyde': 'Male', 'Sarah': 'Female', 'George': 'Male',
-    'Callum': 'Male', 'River': 'Female', 'Harry': 'Male', 'Alice': 'Female',
-    'Matilda': 'Female', 'Will': 'Male', 'Jessica': 'Female', 'Brian': 'Male',
-    'Daniel': 'Male', 'Lily': 'Female', 'Bill': 'Male'
+    // Neural Voices from PDF & User List
+    "af-ZA-AdriNeural": "Female", "af-ZA-WillemNeural": "Male",
+    "sq-AL-AnilaNeural": "Female", "sq-AL-IlirNeural": "Male",
+    "am-ET-AmehaNeural": "Male", "am-ET-MekdesNeural": "Female",
+    "ar-DZ-AminaNeural": "Female", "ar-DZ-IsmaelNeural": "Male",
+    "ar-BH-AliNeural": "Male", "ar-BH-LailaNeural": "Female",
+    "ar-EG-SalmaNeural": "Female", "ar-EG-ShakirNeural": "Male",
+    "ar-IQ-BasselNeural": "Male", "ar-IQ-RanaNeural": "Female",
+    "ar-JO-SanaNeural": "Female", "ar-JO-TaimNeural": "Male",
+    "ar-KW-FahedNeural": "Male", "ar-KW-NouraNeural": "Female",
+    "ar-LB-LaylaNeural": "Female", "ar-LB-RamiNeural": "Male",
+    "ar-LY-ImanNeural": "Female", "ar-LY-OmarNeural": "Male",
+    "ar-MA-JamalNeural": "Male", "ar-MA-MounaNeural": "Female",
+    "ar-OM-AbdullahNeural": "Male", "ar-OM-AyshaNeural": "Female",
+    "ar-QA-AmalNeural": "Female", "ar-QA-MoazNeural": "Male",
+    "ar-SA-HamedNeural": "Male", "ar-SA-ZariyahNeural": "Female",
+    "ar-SY-AmanyNeural": "Female", "ar-SY-LaithNeural": "Male",
+    "ar-TN-HediNeural": "Male", "ar-TN-ReemNeural": "Female",
+    "ar-AE-FatimaNeural": "Female", "ar-AE-HamdanNeural": "Male",
+    "ar-YE-MaryamNeural": "Female", "ar-YE-SalehNeural": "Male",
+    "az-AZ-BabekNeural": "Male", "az-AZ-BanuNeural": "Female",
+    "bn-BD-NabanitaNeural": "Female", "bn-BD-PradeepNeural": "Male",
+    "bn-IN-BashkarNeural": "Male", "bn-IN-TanishaaNeural": "Female",
+    "bs-BA-GoranNeural": "Male", "bs-BA-VesnaNeural": "Female",
+    "bg-BG-BorislavNeural": "Male", "bg-BG-KalinaNeural": "Female",
+    "my-MM-NilarNeural": "Female", "my-MM-ThihaNeural": "Male",
+    "ca-ES-AlbaNeural": "Female", "ca-ES-EnricNeural": "Male",
+    "yue-CN-HiuGaaiNeural": "Female", "yue-CN-WanLungNeural": "Male",
+    "zh-CN-XiaoxiaoNeural": "Female", "zh-CN-YunxiNeural": "Male",
+    "zh-CN-YunjianNeural": "Male", "zh-CN-YunyangNeural": "Male",
+    "zh-CN-liaoning-XiaobeiNeural": "Female", "zh-CN-shaanxi-XiaoniNeural": "Female",
+    "zh-HK-HiuMaanNeural": "Female", "zh-HK-WanLungNeural": "Male",
+    "zh-HK-HiuGaaiNeural": "Female", "zh-TW-HsiaoChenNeural": "Female",
+    "zh-TW-YunJheNeural": "Male", "zh-TW-HsiaoYuNeural": "Female",
+    "hr-HR-GabrijelaNeural": "Female", "hr-HR-SreckoNeural": "Male",
+    "cs-CZ-AntoninNeural": "Male", "cs-CZ-VlastaNeural": "Female",
+    "da-DK-ChristelNeural": "Female", "da-DK-JeppeNeural": "Male",
+    "nl-BE-ArnaudNeural": "Male", "nl-BE-DenaNeural": "Female",
+    "nl-NL-ColetteNeural": "Female", "nl-NL-FennaNeural": "Female", "nl-NL-MaartenNeural": "Male",
+    "en-AU-NatashaNeural": "Female", "en-AU-WilliamNeural": "Male",
+    "en-CA-ClaraNeural": "Female", "en-CA-LiamNeural": "Male",
+    "en-HK-SamNeural": "Male", "en-HK-YanNeural": "Female",
+    "en-IN-NeerjaNeural": "Female", "en-IN-PrabhatNeural": "Male",
+    "en-IE-EmilyNeural": "Female", "en-IE-ConnorNeural": "Male",
+    "en-KE-AsiliaNeural": "Female", "en-KE-ChilembaNeural": "Male",
+    "en-NZ-MitchellNeural": "Male", "en-NZ-MollyNeural": "Female",
+    "en-NG-AbeoNeural": "Male", "en-NG-EzinneNeural": "Female",
+    "en-PH-JamesNeural": "Male", "en-PH-RosaNeural": "Female",
+    "en-SG-LunaNeural": "Female", "en-SG-WayneNeural": "Male",
+    "en-ZA-LeahNeural": "Female", "en-ZA-LukeNeural": "Male",
+    "en-TZ-ElimuNeural": "Male", "en-TZ-ImaniNeural": "Female",
+    "en-GB-LibbyNeural": "Female", "en-GB-MaisieNeural": "Female", "en-GB-RyanNeural": "Male",
+    "en-GB-SoniaNeural": "Female", "en-GB-ThomasNeural": "Male",
+    "en-US-AnaNeural": "Female", "en-US-AriaNeural": "Female", "en-US-ChristopherNeural": "Male",
+    "en-US-EricNeural": "Male", "en-US-GuyNeural": "Male", "en-US-JennyNeural": "Female",
+    "en-US-MichelleNeural": "Female", "en-US-RogerNeural": "Male", "en-US-SteffanNeural": "Male",
+    "et-EE-AnuNeural": "Female", "et-EE-KertNeural": "Male",
+    "fil-PH-AngeloNeural": "Male", "fil-PH-BlessicaNeural": "Female",
+    "fi-FI-HarriNeural": "Male", "fi-FI-NooraNeural": "Female",
+    "fr-BE-CharlineNeural": "Female", "fr-BE-GerardNeural": "Male",
+    "fr-CA-AntoineNeural": "Male", "fr-CA-JeanNeural": "Male", "fr-CA-SylvieNeural": "Female",
+    "fr-CA-ThierryNeural": "Male", "fr-FR-AlainNeural": "Male", "fr-FR-BrigitteNeural": "Female",
+    "fr-FR-CelesteNeural": "Female", "fr-FR-ClaudeNeural": "Male", "fr-FR-CoralieNeural": "Female",
+    "fr-FR-DeniseNeural": "Female", "fr-FR-EloiseNeural": "Female", "fr-FR-HenriNeural": "Male",
+    "fr-FR-JacquesNeural": "Male", "fr-FR-JeromeNeural": "Male", "fr-FR-JulieNeural": "Female",
+    "fr-FR-PaulNeural": "Male", "fr-FR-VivienneNeural": "Female",
+    "de-AT-IngridNeural": "Female", "de-AT-JonasNeural": "Male",
+    "de-CH-JanNeural": "Male", "de-CH-LeniNeural": "Female",
+    "de-DE-AmalaNeural": "Female", "de-DE-ConradNeural": "Male", "de-DE-KatjaNeural": "Female",
+    "de-DE-KillianNeural": "Male", "de-DE-KlarissaNeural": "Female", "de-DE-KlausNeural": "Male",
+    "de-DE-LouisaNeural": "Female", "de-DE-MajaNeural": "Female", "de-DE-RalfNeural": "Male",
+    "de-DE-TanjaNeural": "Female", "el-GR-AthinaNeural": "Female", "el-GR-NestorasNeural": "Male",
+    "it-IT-DiegoNeural": "Male", "it-IT-ElsaNeural": "Female"
 };
 
 const getCountryName = (code: string): string => {
@@ -67,7 +117,7 @@ const getCountryName = (code: string): string => {
         'FI': 'فنلندا', 'FR': 'فرنسا', 'AT': 'النمسا', 'CH': 'سويسرا', 'DE': 'ألمانيا',
         'GR': 'اليونان', 'IT': 'إيطاليا'
     };
-    return countries[code.toUpperCase()] || code.toUpperCase();
+    return countries[code.toUpperCase()] || "Global";
 }
 
 const getLanguageName = (code: string): string => {
@@ -78,7 +128,7 @@ const getLanguageName = (code: string): string => {
         'nl': 'Dutch', 'en': 'English', 'et': 'Estonian', 'fil': 'Filipino', 'fi': 'Finnish',
         'fr': 'French', 'de': 'German', 'el': 'Greek', 'it': 'Italian'
     };
-    return languages[code.toLowerCase()] || code.toLowerCase();
+    return languages[code.toLowerCase()] || "Unknown";
 }
 
 export async function GET() {
@@ -93,22 +143,18 @@ export async function GET() {
     const voicesData = await voicesResponse.json();
     
     const formattedVoices: Voice[] = voicesData.map((voice: any) => {
-        const parts = voice.voice_id.split('-');
-        const langCode = parts.length > 0 ? parts[0] : 'unk';
-        const countryCode = parts.length > 1 ? parts[1].toUpperCase() : 'UNK';
+        const voiceId = voice.voice_id;
+        const parts = voiceId.split('-');
         
-        // --- === الإصلاح النهائي والدقيق هنا === ---
-        // 1. نأخذ الاسم من المصدر (voice.name) كأولوية.
-        // 2. إذا لم يكن موجودًا، نستخلصه من `voice_id`.
-        // 3. نستخدم `.replace('Neural', '')` لإزالة الكلمة.
-        // 4. نستخدم `.trim()` لإزالة أي مسافات زائدة في البداية أو النهاية. هذا هو الحل للمشكلة.
-        const characterName = (voice.name || (parts.length > 2 ? parts[2] : voice.voice_id))
-            .replace('Neural', '')
-            .trim();
+        const isNeural = voiceId.includes('-');
+        
+        const langCode = isNeural ? parts[0] : 'en';
+        const countryCode = isNeural ? parts[1].toUpperCase() : 'US';
+        const characterName = voice.name;
 
         return {
-            name: voice.voice_id,
-            gender: voiceGenderMap[characterName] || 'Not specified',
+            name: voiceId,
+            gender: voiceGenderMap[voiceId] || 'Not specified',
             languageName: getLanguageName(langCode),
             languageCode: langCode,
             countryName: getCountryName(countryCode),

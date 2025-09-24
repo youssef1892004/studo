@@ -32,10 +32,13 @@ const SortableEditorBlock = dynamic(() => import('@/components/SortableEditorBlo
   loading: () => <div className="text-center p-10 text-gray-500">Loading Editor...</div>,
 });
 
+// --- نوع جديد لتتبع حالة التوليد ---
 type GenerationStatus = 'idle' | 'creating' | 'polling' | 'completed' | 'failed';
 
+// --- تم نقل المكون هنا (خارج المكون الرئيسي) لحل مشكلة الشاشة البيضاء ---
 const GenerationStatusIndicator = ({ status }: { status: GenerationStatus }) => {
     if (status === 'idle') return null;
+
     const messages: Record<GenerationStatus, { icon: React.ReactNode; text: string; }> = {
       idle: { icon: null, text: '' },
       creating: { icon: <LoaderCircle className="animate-spin" />, text: 'جاري إنشاء المهمة...' },
@@ -43,7 +46,9 @@ const GenerationStatusIndicator = ({ status }: { status: GenerationStatus }) => 
       completed: { icon: <CheckCircle2 className="text-green-500" />, text: 'اكتمل بنجاح!' },
       failed: { icon: <XCircle className="text-red-500" />, text: 'فشلت العملية. حاول مرة أخرى.' },
     };
+
     const currentStatus = messages[status];
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl p-6 flex items-center space-x-4 rtl:space-x-reverse min-w-[250px]">
@@ -53,6 +58,7 @@ const GenerationStatusIndicator = ({ status }: { status: GenerationStatus }) => 
         </div>
     );
 };
+
 
 export default function StudioProjectPage() {
   const [projectTitle, setProjectTitle] = useState("Untitled Project");
@@ -99,7 +105,10 @@ export default function StudioProjectPage() {
       if (authContext?.user?.id && projectId) {
         setIsLoading(true);
         try {
-          const [fetchedVoices, projectData] = await Promise.all([ fetchVoices(), getProjectById(projectId) ]);
+          const [fetchedVoices, projectData] = await Promise.all([
+            fetchVoices(),
+            getProjectById(projectId)
+          ]);
           setVoices(fetchedVoices);
           if (projectData) {
             setProjectTitle(projectData.comments || "Untitled Project");
