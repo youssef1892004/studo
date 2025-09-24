@@ -7,9 +7,9 @@ import { fetchVoices } from '@/lib/tts';
 import { Voice, TTSCardData } from '@/lib/types';
 import AudioPlayer from '@/components/AudioPlayer';
 import SettingsSidebar from '@/components/SettingsSidebar';
-import { LoaderCircle, Orbit, Plus, Save, Share } from 'lucide-react';
+import { LoaderCircle, Orbit, Plus, Save, Share, CheckCircle2, XCircle } from 'lucide-react';
 import { AuthContext } from '@/contexts/AuthContext';
-import dynamic from 'next/dynamic'; // <-- استيراد دالة التحميل الديناميكي
+import dynamic from 'next/dynamic';
 import {
   DndContext,
   closestCenter,
@@ -27,17 +27,34 @@ import {
 } from '@dnd-kit/sortable';
 import { getProjectById, updateProject } from '@/lib/graphql';
 
-// --- === تم التعديل هنا: تحميل المكون ديناميكيًا === ---
-// هذا يخبر Next.js بأن لا يقوم بتحميل هذا المكون على الخادم
 const SortableEditorBlock = dynamic(() => import('@/components/SortableEditorBlock'), {
-  ssr: false, // الأهم: منع التحميل على الخادم
+  ssr: false, 
   loading: () => <div className="text-center p-10 text-gray-500">Loading Editor...</div>,
 });
-// --- ================================================ ---
 
+type GenerationStatus = 'idle' | 'creating' | 'polling' | 'completed' | 'failed';
+
+const GenerationStatusIndicator = ({ status }: { status: GenerationStatus }) => {
+    if (status === 'idle') return null;
+    const messages: Record<GenerationStatus, { icon: React.ReactNode; text: string; }> = {
+      idle: { icon: null, text: '' },
+      creating: { icon: <LoaderCircle className="animate-spin" />, text: 'جاري إنشاء المهمة...' },
+      polling: { icon: <LoaderCircle className="animate-spin" />, text: 'جاري معالجة الصوت...' },
+      completed: { icon: <CheckCircle2 className="text-green-500" />, text: 'اكتمل بنجاح!' },
+      failed: { icon: <XCircle className="text-red-500" />, text: 'فشلت العملية. حاول مرة أخرى.' },
+    };
+    const currentStatus = messages[status];
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 flex items-center space-x-4 rtl:space-x-reverse min-w-[250px]">
+                <div className="text-2xl">{currentStatus.icon}</div>
+                <p className="text-lg font-semibold text-gray-800">{currentStatus.text}</p>
+            </div>
+        </div>
+    );
+};
 
 export default function StudioProjectPage() {
-  // ... باقي الكود يبقى كما هو تمامًا ...
   const [projectTitle, setProjectTitle] = useState("Untitled Project");
   const [voices, setVoices] = useState<Voice[]>([]);
   const [cards, setCards] = useState<TTSCardData[]>([]);
@@ -49,6 +66,13 @@ export default function StudioProjectPage() {
   const [error, setError] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   
+  const [languageFilter, setLanguageFilter] = useState('all');
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [genderFilter, setGenderFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('idle');
+
   const [jobId, setJobId] = useState<string | null>(null);
   const [pollingIntervalId, setPollingIntervalId] = useState<NodeJS.Timeout | null>(null);
 
@@ -75,13 +99,8 @@ export default function StudioProjectPage() {
       if (authContext?.user?.id && projectId) {
         setIsLoading(true);
         try {
-          const [fetchedVoices, projectData] = await Promise.all([
-            fetchVoices(),
-            getProjectById(projectId)
-          ]);
-
+          const [fetchedVoices, projectData] = await Promise.all([ fetchVoices(), getProjectById(projectId) ]);
           setVoices(fetchedVoices);
-
           if (projectData) {
             setProjectTitle(projectData.comments || "Untitled Project");
             setCards(projectData.blocks || []);
@@ -113,10 +132,7 @@ export default function StudioProjectPage() {
       const newCard: TTSCardData = {
         id: newCardId, 
         voice: voices[0].name,
-        data: { 
-          time: Date.now(), 
-          blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: '' } }] 
-        },
+        data: { time: Date.now(), blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: '' } }] },
       };
       setCards([...cards, newCard]);
       setActiveCardId(newCardId);
@@ -135,8 +151,6 @@ export default function StudioProjectPage() {
     }
   }
 
-  // ... (داخل مكون StudioProjectPage)
-
   const handleGenerate = async () => {
     const blocksForApi = cards
       .map(card => ({
@@ -146,9 +160,13 @@ export default function StudioProjectPage() {
       }))
       .filter(item => item.text.length > 0);
 
-    if (blocksForApi.length === 0) return setError('Please enter some text.');
+    if (blocksForApi.length === 0) {
+      setError('Please enter some text.');
+      return;
+    }
     
     setIsGenerating(true);
+    setGenerationStatus('creating');
     setError(null);
     setMergedAudioUrl(null);
     if (pollingIntervalId) clearInterval(pollingIntervalId);
@@ -161,6 +179,8 @@ export default function StudioProjectPage() {
       });
 
       if (!createJobResponse.ok) throw new Error((await createJobResponse.json()).error || "Failed to start job.");
+      
+      setGenerationStatus('polling');
       const { job_id } = await createJobResponse.json();
       setJobId(job_id);
 
@@ -170,36 +190,38 @@ export default function StudioProjectPage() {
             const statusData = await statusResponse.json();
 
             if (statusData.status === 'completed') {
-                // --- === تم التعديل هنا === ---
-                // نحن الآن نستخدم المسار الجديد الذي قمنا بإنشائه
                 setMergedAudioUrl(`/api/tts/result/${job_id}`); 
-                
+                setGenerationStatus('completed');
                 setIsGenerating(false);
                 clearInterval(intervalId);
                 setPollingIntervalId(null);
-
+                setTimeout(() => setGenerationStatus('idle'), 2000);
             } else if (statusData.status === 'failed') {
                  setError('Audio generation failed. Please try again.');
+                 setGenerationStatus('failed');
                  setIsGenerating(false);
                  clearInterval(intervalId);
                  setPollingIntervalId(null);
+                 setTimeout(() => setGenerationStatus('idle'), 3000);
             }
         } catch (err) {
             setError('Error checking job status.');
+            setGenerationStatus('failed');
             setIsGenerating(false);
             clearInterval(intervalId);
             setPollingIntervalId(null);
+            setTimeout(() => setGenerationStatus('idle'), 3000);
         }
       }, 3000);
       setPollingIntervalId(intervalId);
 
     } catch (err: any) {
       setError(err.message);
+      setGenerationStatus('failed');
       setIsGenerating(false);
+      setTimeout(() => setGenerationStatus('idle'), 3000);
     }
   };
-
-// ... (باقي الكود)
 
   const handleSaveProject = async () => {
     if (!authContext?.user?.id || !projectId) return setError("Cannot save. No user or project ID found.");
@@ -217,12 +239,33 @@ export default function StudioProjectPage() {
     }
   };
 
+  const languages = Array.from(new Map(voices.map(v => [v.languageCode, { code: v.languageCode, name: v.languageName }])).values());
+  const countries = Array.from(new Map(voices.map(v => [v.countryCode, { code: v.countryCode, name: v.countryName }])).values())
+      .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+
+  const filteredVoices = voices
+    .filter(voice => {
+        const langMatch = languageFilter === 'all' || voice.languageCode === languageFilter;
+        const countryMatch = countryFilter === 'all' || voice.countryCode === countryFilter;
+        const genderMatch = genderFilter === 'all' || voice.gender === genderFilter;
+        return langMatch && countryMatch && genderMatch;
+    })
+    .filter(voice => {
+        if (searchTerm.trim() === '') return true;
+        const lowerSearchTerm = searchTerm.toLowerCase();
+        return (
+            voice.characterName.toLowerCase().includes(lowerSearchTerm) ||
+            voice.countryName.toLowerCase().includes(lowerSearchTerm)
+        );
+    });
+
   if (isLoading || authContext?.isLoading || !authContext?.user) {
     return <div className="flex items-center justify-center min-h-screen"><Orbit className="w-12 h-12 animate-spin text-gray-800" /></div>;
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-100 font-sans">
+      <GenerationStatusIndicator status={generationStatus} />
       <header className="flex items-center justify-between p-3 bg-white border-b border-gray-200 flex-shrink-0">
         <input 
             type="text"
@@ -241,8 +284,22 @@ export default function StudioProjectPage() {
         </div>
       </header>
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-72 bg-white border-r border-gray-200 flex-shrink-0">
-          <SettingsSidebar voices={voices} onApplyVoice={handleApplyVoice} activeVoiceName={activeCard?.voice} />
+        <aside className="w-80 bg-white border-r border-gray-200 flex-shrink-0 overflow-y-auto">
+          <SettingsSidebar 
+            voices={filteredVoices}
+            onApplyVoice={handleApplyVoice}
+            activeVoiceName={activeCard?.voice}
+            languages={languages}
+            countries={countries}
+            languageFilter={languageFilter}
+            setLanguageFilter={setLanguageFilter}
+            countryFilter={countryFilter}
+            setCountryFilter={setCountryFilter}
+            genderFilter={genderFilter}
+            setGenderFilter={setGenderFilter}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+          />
         </aside>
         <main className="flex-1 flex flex-col p-6 lg:p-10 overflow-y-auto">
           {(error || pageMessage) && (

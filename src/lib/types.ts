@@ -1,16 +1,19 @@
 import { OutputData } from "@editorjs/editorjs";
 
 export interface Voice {
-  gender: string;
-  language: string;
-  name: string;
+  name: string; // المعرف الفريد مثل "ar-SA-HamedNeural"
+  gender: 'Male' | 'Female' | 'Not specified';
+  languageName: string; // اسم اللغة الكامل مثل "Arabic"
+  languageCode: string; // رمز اللغة مثل "ar"
+  countryName: string; // اسم البلد الكامل مثل "السعودية"
+  countryCode: string; // رمز البلد مثل "SA"
+  characterName: string; // اسم الشخصية الواضح مثل "Hamed"
 }
 
-// كل بطاقة ستحتوي على بيانات المحرر الخاصة بها
 export interface TTSCardData {
   id: string;
   voice: string;
-  data: OutputData; // بيانات من Editor.js
+  data: OutputData;
   text?: string;
 }
 

@@ -3,9 +3,8 @@
 import React, { useEffect, useRef } from 'react';
 import { TTSCardData } from '@/lib/types';
 import EditorJS, { OutputData } from '@editorjs/editorjs';
-import { MoreVertical } from 'lucide-react';
 
-// Import all the tools
+// استيراد أدوات المحرر
 import Header from '@editorjs/header';
 import List from '@editorjs/list';
 import Quote from '@editorjs/quote';
@@ -28,29 +27,14 @@ export default function EditorBlock({ cardData, onUpdate, isActive, onClick }: E
   const holderId = `editorjs-${cardData.id}`;
 
   useEffect(() => {
-    // Check if window is defined to ensure this runs only on the client
     if (typeof window !== 'undefined' && !editorRef.current) {
       const editor = new EditorJS({
         holder: holderId,
         tools: {
-          // FIX: Using 'as any' to bypass the TypeScript type mismatch error.
-          // This is a safe workaround for this specific library issue.
-          paragraph: {
-            class: Paragraph as any,
-            inlineToolbar: true,
-          },
-          header: {
-            class: Header as any,
-            inlineToolbar: true,
-          },
-          list: {
-            class: List as any,
-            inlineToolbar: true,
-          },
-          quote: {
-            class: Quote as any,
-            inlineToolbar: true,
-          },
+          paragraph: { class: Paragraph as any, inlineToolbar: true },
+          header: { class: Header as any, inlineToolbar: true },
+          list: { class: List as any, inlineToolbar: true },
+          quote: { class: Quote as any, inlineToolbar: true },
           delimiter: Delimiter as any,
           inlineCode: InlineCode as any,
           code: CodeTool as any,
@@ -84,14 +68,10 @@ export default function EditorBlock({ cardData, onUpdate, isActive, onClick }: E
       onClick={() => onClick(cardData.id)}
       className={`group w-full p-2 rounded-lg transition-all duration-150 relative ${isActive ? 'bg-blue-50' : 'bg-transparent'}`}
     >
-      <div className={`absolute left-0 top-2 bottom-2 w-1 bg-blue-500 rounded-r-full transition-opacity duration-150 ${isActive ? 'opacity-100' : 'opacity-0'}`}></div>
+      {/* --- === تم التعديل هنا: الخط الأزرق على اليمين === --- */}
+      <div className={`absolute right-0 top-2 bottom-2 w-1 bg-blue-500 rounded-l-full transition-opacity duration-150 ${isActive ? 'opacity-100' : 'opacity-0'}`}></div>
+      
       <div id={holderId} className="prose max-w-full" />
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* FIX: Added aria-label for accessibility */}
-        <button aria-label="Block options" className="p-1 text-gray-400 hover:text-gray-700 rounded-full">
-            <MoreVertical size={20} />
-        </button>
-      </div>
     </div>
   );
 }
