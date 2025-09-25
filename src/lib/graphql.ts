@@ -124,3 +124,22 @@ export const updateProject = async (projectId: string, cards: TTSCardData[], tit
     if (response.errors) throw new Error(response.errors[0].message);
     return response.data;
 }
+// --- (جديد) دالة لحذف مشروع ---
+export const deleteProject = async (projectId: string): Promise<{ id: string }> => {
+    const mutation = `
+        mutation DeleteProject($id: uuid!) {
+            delete_libaray_Projects_by_pk(id: $id) {
+                id
+            }
+        }
+    `;
+    const variables = { id: projectId };
+    const response = await fetchGraphQL<{ delete_libaray_Projects_by_pk: { id: string } }>(mutation, variables);
+    if (response.errors) {
+        throw new Error(response.errors[0].message);
+    }
+    if (!response.data?.delete_libaray_Projects_by_pk) {
+        throw new Error("Project not found or could not be deleted.");
+    }
+    return response.data.delete_libaray_Projects_by_pk;
+};

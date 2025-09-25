@@ -62,7 +62,7 @@ export default function RightSidebar({
   setSearchTerm
 }: RightSidebarProps) {
   return (
-    <aside className="w-72 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden">
+   <aside className="w-72 bg-white border-l border-gray-200 flex-col h-full overflow-hidden hidden md:flex">
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex-shrink-0 p-3 border-b border-gray-100">

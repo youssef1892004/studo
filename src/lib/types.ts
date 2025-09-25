@@ -18,6 +18,7 @@ export interface TTSCardData {
   audioUrl?: string;
   duration?: number;
   isGenerating?: boolean;
+  job_id?: string; // <--- قم بإضافة هذا السطر
 }
 
 export interface TTSRequestItem {

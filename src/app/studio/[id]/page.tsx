@@ -1,3 +1,5 @@
+// src/app/studio/[id]/page.tsx
+
 'use client';
 
 import { useContext, useEffect, useState, useRef } from 'react';
@@ -14,7 +16,7 @@ import getMP3Duration from 'get-mp3-duration';
 import ProjectHeader from '@/components/studio/ProjectHeader';
 import EditorCanvas from '@/components/studio/EditorCanvas';
 import RightSidebar from '@/components/studio/RightSidebar';
-import EnhancedTimeline from '@/components/Timeline';
+import Timeline from '@/components/Timeline';
 
 export default function StudioProjectPage() {
     const [projectTitle, setProjectTitle] = useState("Untitled Project");
@@ -26,7 +28,9 @@ export default function StudioProjectPage() {
     const [error, setError] = useState<string | null>(null);
     const [pageMessage, setPageMessage] = useState<string | null>(null);
     
-    // إعادة حالة الفلاتر
+    // --- (جديد) إضافة متغير لتتبع حالة التحميل الأولي ---
+    const isInitialLoad = useRef(true);
+    
     const [languageFilter, setLanguageFilter] = useState('all');
     const [countryFilter, setCountryFilter] = useState('all');
     const [genderFilter, setGenderFilter] = useState('all');
@@ -39,6 +43,34 @@ export default function StudioProjectPage() {
     const projectId = params.id as string;
 
     const activeCard = cards.find(c => c.id === activeCardId);
+
+    // --- (جديد) إضافة ميزة الحفظ التلقائي ---
+    useEffect(() => {
+        // لا تقم بالحفظ عند التحميل الأولي للصفحة
+        if (isInitialLoad.current) {
+            return;
+        }
+
+        // إعداد مؤقت لتأجيل الحفظ
+        const handler = setTimeout(() => {
+            console.log("Auto-saving project data...");
+            updateProject(projectId, cards, projectTitle)
+                .then(() => {
+                    console.log("Project auto-saved successfully.");
+                    // يمكنك إضافة رسالة للمستخدم هنا إذا أردت
+                })
+                .catch(err => {
+                    console.error("Auto-save failed:", err);
+                    setError("فشل حفظ المشروع تلقائيًا.");
+                });
+        }, 2000); // الحفظ بعد ثانيتين من آخر تعديل
+
+        // إلغاء المؤقت السابق عند حدوث تغيير جديد
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [cards, projectTitle, projectId]);
+
 
     useEffect(() => {
         const intervals = pollingIntervals.current;
@@ -75,6 +107,8 @@ export default function StudioProjectPage() {
             setError(`Failed to load project data: ${e.message}`);
           } finally {
             setIsLoading(false);
+            // --- (جديد) تم انتهاء التحميل الأولي ---
+            setTimeout(() => { isInitialLoad.current = false; }, 500);
           }
         }
       }
@@ -165,6 +199,8 @@ export default function StudioProjectPage() {
                     
                     const { job_id } = await createResponse.json();
                     
+                    updateCard(card.id, { job_id: job_id });
+
                     pollingIntervals.current[card.id] = setInterval(async () => {
                         try {
                             const statusResponse = await fetch(`/api/tts/status/${job_id}`);
@@ -215,6 +251,61 @@ export default function StudioProjectPage() {
         }
     };
   
+    const handleDownloadAll = async () => {
+        const jobIds = cards
+            .map(card => card.job_id)
+            .filter((id): id is string => !!id);
+
+        if (jobIds.length === 0) {
+            setError("لم يتم توليد أي مقطع صوتي بعد للتحميل.");
+            return;
+        }
+
+        const cardsWithAudio = cards.filter(c => c.audioUrl);
+        if (jobIds.length !== cardsWithAudio.length) {
+            setError("بعض المقاطع الصوتية لم يتم توليدها. يرجى إعادة المحاولة.");
+            return;
+        }
+
+        setIsGenerating(true);
+        setError(null);
+
+        try {
+            const response = await fetch('/api/tts/merge-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jobIds }),
+            });
+
+            if (!response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'فشل دمج الملفات الصوتية.');
+                } else {
+                    const errorText = await response.text();
+                    console.error("Server returned non-JSON error:", errorText);
+                    throw new Error('حدث خطأ في الخادم أثناء دمج الصوت.');
+                }
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${projectTitle.replace(/ /g, '_') || 'project'}.mp3`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+  
     const languages = Array.from(new Map(
       voices.map(v => [v.languageCode, { 
         code: v.languageCode, 
@@ -260,20 +351,18 @@ export default function StudioProjectPage() {
 
     return (
         <div className="flex flex-col h-screen bg-gray-50 font-sans">
-            {/* رأس الصفحة مع ارتفاع ثابت */}
             <div className="flex-shrink-0 h-14 border-b border-gray-200 bg-white shadow-sm">
                 <ProjectHeader 
                     projectTitle={projectTitle}
                     setProjectTitle={setProjectTitle}
                     isGenerating={isGenerating}
                     handleGenerate={handleGenerate}
+                    handleDownloadAll={handleDownloadAll}
                 />
             </div>
 
-            {/* المحتوى الرئيسي */}
-            <div className={`flex flex-1 overflow-hidden ${hasContent ? 'min-h-0' : ''}`}>
-                {/* منطقة المحرر */}
-                <div className="flex-1 overflow-auto p-3">
+            <div className="flex flex-1 overflow-hidden">
+                <main className="flex-1 flex flex-col overflow-y-auto">
                     <EditorCanvas 
                         cards={cards}
                         setCards={setCards}
@@ -286,9 +375,8 @@ export default function StudioProjectPage() {
                         error={error}
                         pageMessage={pageMessage}
                     />
-                </div>
+                </main>
                 
-                {/* الشريط الجانبي */}
                 <RightSidebar
                     voices={filteredVoices}
                     onApplyVoice={handleApplyVoice}
@@ -306,11 +394,10 @@ export default function StudioProjectPage() {
                 />
             </div>
 
-            {/* الجدول الزمني في الأسفل مع ارتفاع مناسب */}
             {hasContent && (
-                <div className="flex-shrink-0 h-24 border-t border-gray-200 bg-white shadow-inner">
+                <div className="flex-shrink-0 h-48 border-t border-gray-200 bg-white shadow-inner">
                     <div className="h-full flex flex-col">
-                        <EnhancedTimeline cards={cards} />
+                        <Timeline cards={cards} />
                     </div>
                 </div>
             )}
