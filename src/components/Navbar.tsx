@@ -2,11 +2,18 @@
 
 import { useContext } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation'; // --- (جديد) استيراد hook لمعرفة المسار الحالي ---
 import { AuthContext } from '../contexts/AuthContext';
 import { LogOut, User as UserIcon, LogIn, UserPlus } from 'lucide-react';
 
 export default function Navbar() {
   const authContext = useContext(AuthContext);
+  const pathname = usePathname(); // --- (جديد) الحصول على المسار الحالي للصفحة ---
+
+  // --- (جديد) الشرط الرئيسي: إذا كنا في صفحة الاستوديو، لا تعرض أي شيء ---
+  if (pathname.startsWith('/studio/')) {
+    return null;
+  }
 
   if (!authContext) {
     return null; 
@@ -15,7 +22,6 @@ export default function Navbar() {
   const { user, logout, isLoading } = authContext;
 
   if (isLoading) {
-    // ... (كود حالة التحميل كما هو)
     return (
       <header className="bg-white shadow-sm sticky top-0 z-50 h-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full">
@@ -33,7 +39,6 @@ export default function Navbar() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full">
         <div className="flex justify-between items-center h-full">
           <div className="flex-shrink-0">
-            {/* --- === تم تحديث الرابط هنا === --- */}
             <Link href="/" className="text-2xl font-bold text-gray-800">
               Studo
             </Link>

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
-import Navbar from "@/components/Navbar"; // التأكد من وجود هذا الاستيراد
+import Navbar from "@/components/Navbar"; // --- إعادة استيراد Navbar ---
 
 const cairo = Cairo({ subsets: ["arabic"] });
 
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.React.Node;
 }>) {
   return (
     <html lang="ar" dir="rtl">

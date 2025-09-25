@@ -5,34 +5,16 @@ import { useRouter, useParams } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { fetchVoices } from '@/lib/tts';
 import { Voice, TTSCardData } from '@/lib/types';
-import SettingsSidebar from '@/components/SettingsSidebar';
-import { LoaderCircle, Orbit, Plus, Save, Share } from 'lucide-react';
+import { Orbit, Play, LoaderCircle } from 'lucide-react';
 import { AuthContext } from '@/contexts/AuthContext';
-import dynamic from 'next/dynamic';
-import {
-  DndContext,
-  closestCenter,
-  DragEndEvent,
-  useSensor,
-  PointerSensor,
-  KeyboardSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  verticalListSortingStrategy,
-  sortableKeyboardCoordinates,
-} from '@dnd-kit/sortable';
 import { getProjectById, updateProject } from '@/lib/graphql';
-import Timeline from '@/components/Timeline';
 import getMP3Duration from 'get-mp3-duration';
 
-const SortableEditorBlock = dynamic(() => import('@/components/SortableEditorBlock'), {
-  ssr: false, 
-  loading: () => <div className="text-center p-10 text-gray-500">Loading Editor...</div>,
-});
-
+// استيراد المكونات
+import ProjectHeader from '@/components/studio/ProjectHeader';
+import EditorCanvas from '@/components/studio/EditorCanvas';
+import RightSidebar from '@/components/studio/RightSidebar';
+import EnhancedTimeline from '@/components/Timeline';
 
 export default function StudioProjectPage() {
     const [projectTitle, setProjectTitle] = useState("Untitled Project");
@@ -40,41 +22,31 @@ export default function StudioProjectPage() {
     const [cards, setCards] = useState<TTSCardData[]>([]);
     const [activeCardId, setActiveCardId] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pageMessage, setPageMessage] = useState<string | null>(null);
     
+    // إعادة حالة الفلاتر
     const [languageFilter, setLanguageFilter] = useState('all');
     const [countryFilter, setCountryFilter] = useState('all');
     const [genderFilter, setGenderFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     
     const pollingIntervals = useRef<Record<string, NodeJS.Timeout>>({});
-
     const authContext = useContext(AuthContext);
     const router = useRouter();
     const params = useParams();
     const projectId = params.id as string;
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-    );
-
     const activeCard = cards.find(c => c.id === activeCardId);
 
     useEffect(() => {
         const intervals = pollingIntervals.current;
-        return () => {
-            Object.values(intervals).forEach(clearInterval);
-        };
+        return () => { Object.values(intervals).forEach(clearInterval); };
     }, []);
 
     useEffect(() => {
-      if (!authContext?.isLoading && !authContext?.user) {
-        router.push('/login');
-      }
+      if (!authContext?.isLoading && !authContext?.user) router.push('/login');
     }, [authContext, router]);
   
     useEffect(() => {
@@ -83,20 +55,19 @@ export default function StudioProjectPage() {
           setIsLoading(true);
           try {
             const [fetchedVoices, projectData] = await Promise.all([
-              fetchVoices(),
+              fetchVoices(), 
               getProjectById(projectId)
             ]);
+            
             setVoices(fetchedVoices);
             if (projectData) {
               setProjectTitle(projectData.comments || "Untitled Project");
               const initialCards = (projectData.blocks || []).map((card: any) => ({
                 ...card,
-                isGenerating: false,
+                isGenerating: false
               }));
               setCards(initialCards);
-              if (initialCards.length > 0) {
-                setActiveCardId(initialCards[0].id);
-              }
+              if (initialCards.length > 0) setActiveCardId(initialCards[0].id);
             } else {
               setError("Project not found.");
             }
@@ -112,21 +83,30 @@ export default function StudioProjectPage() {
 
     const addCard = () => {
         if (voices.length > 0) {
-        const newCardId = uuidv4();
-        const newCard: TTSCardData = {
-            id: newCardId, 
-            voice: voices[0].name,
-            data: { time: Date.now(), blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: '' } }] },
-            isGenerating: false,
-        };
-        setCards([...cards, newCard]);
-        setActiveCardId(newCardId);
+            const newCardId = uuidv4();
+            const newCard: TTSCardData = {
+                id: newCardId, 
+                voice: voices[0].name,
+                data: { 
+                  time: Date.now(), 
+                  blocks: [{ 
+                    id: uuidv4(), 
+                    type: 'paragraph', 
+                    data: { text: '' } 
+                  }] 
+                },
+                isGenerating: false,
+            };
+            setCards([...cards, newCard]);
+            setActiveCardId(newCardId);
         }
     };
     
     const updateCard = (id: string, data: Partial<TTSCardData>) => {
         setCards(currentCards => 
-        currentCards.map(card => (card.id === id ? { ...card, ...data } : card))
+            currentCards.map(card => 
+              card.id === id ? { ...card, ...data } : card
+            )
         );
     };
 
@@ -137,86 +117,95 @@ export default function StudioProjectPage() {
             delete pollingIntervals.current[id];
         }
     };
-    const handleApplyVoice = (voiceName: string) => activeCardId && updateCard(activeCardId, { voice: voiceName });
-
-    function handleDragEnd({ active, over }: DragEndEvent) {
-        if (over && active.id !== over.id) {
-        const oldIndex = cards.findIndex(item => item.id === active.id);
-        const newIndex = cards.findIndex(item => item.id === over.id);
-        setCards(arrayMove(cards, oldIndex, newIndex));
-        }
-    }
-
+    
+    const handleApplyVoice = (voiceName: string) => {
+      if (activeCardId) {
+        updateCard(activeCardId, { voice: voiceName });
+      }
+    };
+    
     const handleGenerate = async () => {
         const cardsToGenerate = cards.filter(card =>
-            card.data.blocks.some(b => b.data.text && b.data.text.trim().length > 0) && !card.isGenerating
+            card.data.blocks.some(b => b.data.text && b.data.text.trim().length > 0) && 
+            !card.isGenerating
         );
-
+        
         if (cardsToGenerate.length === 0) {
             setError('Add text to generate, or wait for the current process to finish.');
             return;
         }
-
+        
         setIsGenerating(true);
         setError(null);
         
         const generationPromises = cardsToGenerate.map(card => 
             new Promise<void>(async (resolve, reject) => {
-                updateCard(card.id, { isGenerating: true, audioUrl: undefined, duration: undefined });
+                updateCard(card.id, { 
+                  isGenerating: true, 
+                  audioUrl: undefined, 
+                  duration: undefined 
+                });
                 
                 try {
-                    const text = card.data.blocks.map(b => b.data.text).join(' ').trim();
-                    
+                    const text = card.data.blocks
+                      .map(b => b.data.text)
+                      .join(' ')
+                      .trim();
+                      
                     const createResponse = await fetch('/api/tts/generate-segment', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ text, voice: card.voice }),
                     });
-
+                    
                     if (!createResponse.ok) {
                         const errorData = await createResponse.json();
                         throw new Error(errorData.error || 'Failed to start job.');
                     }
                     
                     const { job_id } = await createResponse.json();
-
+                    
                     pollingIntervals.current[card.id] = setInterval(async () => {
                         try {
                             const statusResponse = await fetch(`/api/tts/status/${job_id}`);
-                            if (!statusResponse.ok) throw new Error(`Status check failed for job ${job_id}`);
+                            if (!statusResponse.ok) {
+                              throw new Error(`Status check failed for job ${job_id}`);
+                            }
+                            
                             const statusData = await statusResponse.json();
-
+                            
                             if (statusData.status === 'completed') {
                                 clearInterval(pollingIntervals.current[card.id]);
                                 delete pollingIntervals.current[card.id];
-
+                                
                                 const audioResponse = await fetch(`/api/tts/result/${job_id}`);
                                 const audioBlob = await audioResponse.blob();
                                 const audioUrl = URL.createObjectURL(audioBlob);
                                 const buffer = await audioBlob.arrayBuffer();
                                 const duration = getMP3Duration(Buffer.from(buffer));
                                 
-                                updateCard(card.id, { isGenerating: false, audioUrl, duration: duration / 1000 });
+                                updateCard(card.id, { 
+                                  isGenerating: false, 
+                                  audioUrl, 
+                                  duration: duration / 1000 
+                                });
                                 resolve();
                             } else if (statusData.status === 'failed') {
-                                clearInterval(pollingIntervals.current[card.id]);
-                                delete pollingIntervals.current[card.id];
                                 throw new Error('Audio generation failed on backend.');
                             }
-                        } catch (pollError) {
+                        } catch (pollError: any) {
                             clearInterval(pollingIntervals.current[card.id]);
                             delete pollingIntervals.current[card.id];
                             reject(pollError);
                         }
                     }, 3000);
-
                 } catch (initialError) {
                     updateCard(card.id, { isGenerating: false });
                     reject(initialError);
                 }
             })
         );
-
+        
         try {
             await Promise.all(generationPromises);
         } catch(err: any) {
@@ -225,27 +214,20 @@ export default function StudioProjectPage() {
             setIsGenerating(false);
         }
     };
-
-    const handleSaveProject = async () => {
-        if (!authContext?.user?.id || !projectId) return setError("Cannot save. No user or project ID found.");
-        setIsSaving(true);
-        setError(null);
-        setPageMessage(null);
-        try {
-            const cardsToSave = cards.map(({ audioUrl, duration, isGenerating, ...rest }) => rest);
-            await updateProject(projectId, cardsToSave, projectTitle);
-            setPageMessage("Project saved successfully!");
-            setTimeout(() => setPageMessage(null), 3000);
-        } catch (e: any) {
-            setError(`Failed to save project: ${e.message}`);
-        } finally {
-            setIsSaving(false);
-        }
-    };
   
-    const languages = Array.from(new Map(voices.map(v => [v.languageCode, { code: v.languageCode, name: v.languageName }])).values());
-    const countries = Array.from(new Map(voices.map(v => [v.countryCode, { code: v.countryCode, name: v.countryName }])).values())
-        .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+    const languages = Array.from(new Map(
+      voices.map(v => [v.languageCode, { 
+        code: v.languageCode, 
+        name: v.languageName 
+      }])
+    ).values());
+    
+    const countries = Array.from(new Map(
+      voices.map(v => [v.countryCode, { 
+        code: v.countryCode, 
+        name: v.countryName 
+      }])
+    ).values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   
     const filteredVoices = voices
       .filter(voice => {
@@ -264,75 +246,74 @@ export default function StudioProjectPage() {
       });
   
     if (isLoading || authContext?.isLoading || !authContext?.user) {
-      return <div className="flex items-center justify-center min-h-screen"><Orbit className="w-12 h-12 animate-spin text-gray-800" /></div>;
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+          <div className="text-center space-y-4">
+            <Orbit className="w-12 h-12 animate-spin text-gray-800 mx-auto" />
+            <p className="text-gray-600 text-sm">جاري التحميل...</p>
+          </div>
+        </div>
+      );
     }
   
     const hasContent = cards.length > 0;
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-100 font-sans">
-          <header className="flex items-center justify-between p-3 bg-white border-b border-gray-200 flex-shrink-0">
-            <input 
-                type="text"
-                value={projectTitle}
-                onChange={(e) => setProjectTitle(e.target.value)}
-                className="text-lg font-bold text-gray-800 bg-transparent focus:outline-none focus:ring-0 border-0"
-            />
-            <div className="flex items-center space-x-3">
-              <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-md"><Share size={20} /></button>
-              <button onClick={handleSaveProject} disabled={isSaving} className="p-2 text-gray-600 hover:bg-gray-100 rounded-md disabled:text-gray-300">
-                {isSaving ? <LoaderCircle className="animate-spin" size={20} /> : <Save size={20} />}
-              </button>
-              <button onClick={handleGenerate} disabled={isGenerating} className="px-5 py-2 bg-black text-white font-semibold rounded-md hover:bg-gray-800 disabled:bg-gray-400">
-                {isGenerating ? 'Generating...' : 'Generate'}
-              </button>
+        <div className="flex flex-col h-screen bg-gray-50 font-sans">
+            {/* رأس الصفحة مع ارتفاع ثابت */}
+            <div className="flex-shrink-0 h-14 border-b border-gray-200 bg-white shadow-sm">
+                <ProjectHeader 
+                    projectTitle={projectTitle}
+                    setProjectTitle={setProjectTitle}
+                    isGenerating={isGenerating}
+                    handleGenerate={handleGenerate}
+                />
             </div>
-          </header>
-          <div className="flex flex-1 overflow-hidden">
-            <aside className="w-80 bg-white border-r border-gray-200 flex-shrink-0 overflow-y-auto">
-              <SettingsSidebar 
-                voices={filteredVoices}
-                onApplyVoice={handleApplyVoice}
-                activeVoiceName={activeCard?.voice}
-                languages={languages}
-                countries={countries}
-                languageFilter={languageFilter}
-                setLanguageFilter={setLanguageFilter}
-                countryFilter={countryFilter}
-                setCountryFilter={setCountryFilter}
-                genderFilter={genderFilter}
-                setGenderFilter={setGenderFilter}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-              />
-            </aside>
-            <main className="flex-1 flex flex-col p-6 lg:p-10 overflow-y-auto">
-              {(error || pageMessage) && (
-                <div className={`max-w-4xl mx-auto w-full mb-4 p-3 rounded-lg text-center text-sm font-medium ${error ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                  {error || pageMessage}
+
+            {/* المحتوى الرئيسي */}
+            <div className={`flex flex-1 overflow-hidden ${hasContent ? 'min-h-0' : ''}`}>
+                {/* منطقة المحرر */}
+                <div className="flex-1 overflow-auto p-3">
+                    <EditorCanvas 
+                        cards={cards}
+                        setCards={setCards}
+                        voices={voices}
+                        activeCardId={activeCardId}
+                        setActiveCardId={setActiveCardId}
+                        updateCard={updateCard}
+                        removeCard={removeCard}
+                        addCard={addCard}
+                        error={error}
+                        pageMessage={pageMessage}
+                    />
                 </div>
-              )}
-              <div className="w-full max-w-4xl mx-auto bg-white p-2 rounded-lg shadow-sm flex-1">
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                    {cards.map((card) => (
-                      <SortableEditorBlock key={card.id} cardData={card} voices={voices} onUpdate={updateCard} onRemove={removeCard} isActive={activeCardId === card.id} onClick={setActiveCardId} />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-                <div className="flex justify-center mt-4">
-                  <button onClick={addCard} className="p-2 text-gray-400 hover:text-blue-500 rounded-full hover:bg-gray-100"><Plus size={24} /></button>
+                
+                {/* الشريط الجانبي */}
+                <RightSidebar
+                    voices={filteredVoices}
+                    onApplyVoice={handleApplyVoice}
+                    activeVoiceName={activeCard?.voice}
+                    languages={languages}
+                    countries={countries}
+                    languageFilter={languageFilter}
+                    setLanguageFilter={setLanguageFilter}
+                    countryFilter={countryFilter}
+                    setCountryFilter={setCountryFilter}
+                    genderFilter={genderFilter}
+                    setGenderFilter={setGenderFilter}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                />
+            </div>
+
+            {/* الجدول الزمني في الأسفل مع ارتفاع مناسب */}
+            {hasContent && (
+                <div className="flex-shrink-0 h-24 border-t border-gray-200 bg-white shadow-inner">
+                    <div className="h-full flex flex-col">
+                        <EnhancedTimeline cards={cards} />
+                    </div>
                 </div>
-              </div>
-            </main>
-          </div>
-          {hasContent && (
-            <footer className="bg-white border-t p-4 shadow-inner flex-shrink-0">
-              <div className="max-w-6xl mx-auto">
-                <Timeline cards={cards} />
-              </div>
-            </footer>
-          )}
+            )}
         </div>
-      );
-} 
+    );
+}

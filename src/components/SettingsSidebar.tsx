@@ -3,7 +3,6 @@
 import { Voice } from '@/lib/types';
 import { Check, ChevronDown, Play, Search } from 'lucide-react';
 
-// --- Props Interface ---
 interface SettingsSidebarProps {
   voices: Voice[];
   onApplyVoice: (voiceName: string) => void;
@@ -20,7 +19,6 @@ interface SettingsSidebarProps {
   setSearchTerm: (term: string) => void;
 }
 
-// --- Gender Filter Button Component ---
 const GenderButton = ({ value, label, currentFilter, setFilter }: { value: string; label: string; currentFilter: string; setFilter: (value: string) => void; }) => (
   <button
     onClick={() => setFilter(value)}
@@ -41,9 +39,8 @@ export default function SettingsSidebar({
     <div className="flex flex-col h-full bg-white p-4 space-y-6 font-sans">
       <h2 className="text-xl font-bold text-gray-900 px-1">Voice Library</h2>
 
-      {/* --- Search and Filters Section --- */}
+      {/* --- قسم البحث والفلاتر --- */}
       <div className="space-y-4 px-1">
-        {/* Search Input */}
         <div className="relative">
           <label htmlFor="voice-search" className="sr-only">Search Voices</label>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -57,7 +54,6 @@ export default function SettingsSidebar({
           />
         </div>
         
-        {/* Gender Filter */}
         <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
             <div className="flex w-full bg-gray-100 p-1 rounded-lg space-x-1 rtl:space-x-reverse">
@@ -67,7 +63,6 @@ export default function SettingsSidebar({
             </div>
         </div>
         
-        {/* Language Filter */}
         <div>
             <label htmlFor="language-filter" className="block text-sm font-semibold text-gray-700 mb-2">Language</label>
             <div className="relative">
@@ -84,7 +79,6 @@ export default function SettingsSidebar({
             </div>
         </div>
 
-        {/* Country Filter */}
         <div>
             <label htmlFor="country-filter" className="block text-sm font-semibold text-gray-700 mb-2">Country</label>
             <div className="relative">
@@ -102,7 +96,7 @@ export default function SettingsSidebar({
         </div>
       </div>
 
-      {/* --- Voice List Section --- */}
+      {/* --- قائمة الأصوات --- */}
       <div className="flex-1 flex flex-col min-h-0">
         <h3 className="text-sm font-semibold text-gray-700 mb-2 px-1">
           Voices ({voices.length})

@@ -7,6 +7,9 @@ import { Voice, TTSCardData } from '@/lib/types';
 import { GripVertical, Mic, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
+// --- (جديد) استيراد المشغل المصغر ---
+import SegmentPlayer from './studio/SegmentPlayer'; 
+
 interface SortableEditorBlockProps {
   cardData: TTSCardData;
   voices: Voice[];
@@ -32,38 +35,33 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
 
   const [estimatedDuration, setEstimatedDuration] = useState(0);
 
-  // --- التأثير لحساب المدة عند تغير النص ---
+  // استخراج النص من بيانات المحرر
+  const textContent = props.cardData.data.blocks.map(block => block.data.text || '').join(' ').trim();
+
   useEffect(() => {
-    const text = props.cardData.data.blocks.map(block => block.data.text || '').join(' ').trim();
-    if (text.length > 0) {
-      // متوسط سرعة القراءة باللغة العربية حوالي 15 حرف في الثانية
+    if (textContent.length > 0) {
       const charsPerSecond = 15;
-      const duration = Math.max(1, Math.round(text.length / charsPerSecond)); // المدة لا تقل عن ثانية
+      const duration = Math.max(1, Math.round(textContent.length / charsPerSecond));
       setEstimatedDuration(duration);
     } else {
       setEstimatedDuration(0);
     }
-  }, [props.cardData.data]);
+  }, [textContent]);
   
-  // 1. نبحث عن تفاصيل الصوت الكاملة
   const activeVoice = props.voices.find(v => v.name === props.cardData.voice);
   
-  // 2. نستخرج اسم الشخصية من `voice_id` (الجزء الثالث)
   const characterName = activeVoice 
     ? activeVoice.name.split('-')[2]?.replace('Neural', '') 
     : '...';
 
-  // 3. نحصل على الحرف الأول من اسم الشخصية الصحيح
   const characterInitial = characterName ? characterName.charAt(0).toUpperCase() : '?';
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      {/* حاوية رئيسية بتصميم عصري */}
       <div className="group flex items-start gap-4 p-2 rounded-lg hover:bg-gray-50/70 transition-colors duration-200">
         
         {/* الأدوات على اليمين */}
         <div className="flex-shrink-0 flex items-center gap-2 pt-2">
-          {/* أيقونة الشخصية الدائرية (ظاهرة دائمًا) */}
           <div
             className="flex items-center justify-center w-7 h-7 bg-gray-200 text-gray-700 text-sm font-bold rounded-full cursor-pointer"
             title={`Voice: ${characterName}`}
@@ -71,15 +69,13 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
             {characterInitial}
           </div>
 
-          {/* عرض المدة التقديرية */}
-          {estimatedDuration > 0 && (
+          {estimatedDuration > 0 && !props.cardData.audioUrl && (
             <div className="flex items-center gap-1 text-xs text-gray-500 font-mono opacity-0 group-hover:opacity-100 transition-opacity" title="Estimated duration">
                 <Mic size={12} />
                 <span>~{estimatedDuration}s</span>
             </div>
           )}
 
-          {/* مقبض السحب (يظهر عند مرور الماوس) */}
           <div 
             {...listeners} 
             className="text-gray-400 cursor-grab active:cursor-grabbing touch-none p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -88,7 +84,6 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
             <GripVertical size={20}/>
           </div>
 
-          {/* زر الحذف (يظهر عند مرور الماوس) */}
           <button
             onClick={() => props.onRemove(props.cardData.id)}
             className="text-gray-400 hover:text-red-500 cursor-pointer touch-none p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -98,9 +93,15 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
           </button>
         </div>
         
-        {/* محرر النص على اليسار */}
+        {/* محرر النص والمشغل المصغر تحته */}
         <div className="flex-grow">
           <EditorBlock {...props} />
+          
+          {/* --- (جديد) إضافة المشغل المصغر هنا --- */}
+          {/* سيظهر المشغل فقط إذا تم إنشاء المقطع الصوتي */}
+          {props.cardData.audioUrl && (
+            <SegmentPlayer audioUrl={props.cardData.audioUrl} text={textContent} />
+          )}
         </div>
       </div>
     </div>
