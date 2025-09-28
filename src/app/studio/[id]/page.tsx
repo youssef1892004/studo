@@ -17,6 +17,7 @@ import ProjectHeader from '@/components/studio/ProjectHeader';
 import EditorCanvas from '@/components/studio/EditorCanvas';
 import RightSidebar from '@/components/studio/RightSidebar';
 import Timeline from '@/components/Timeline';
+import LoadingScreen from '@/components/LoadingScreen';
 
 export default function StudioProjectPage() {
     const [projectTitle, setProjectTitle] = useState("Untitled Project");
@@ -24,6 +25,7 @@ export default function StudioProjectPage() {
     const [cards, setCards] = useState<TTSCardData[]>([]);
     const [activeCardId, setActiveCardId] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState<string | null>(null); // <--- NEW STATE FOR DYNAMIC MESSAGE
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pageMessage, setPageMessage] = useState<string | null>(null);
@@ -43,6 +45,10 @@ export default function StudioProjectPage() {
     const projectId = params.id as string;
 
     const activeCard = cards.find(c => c.id === activeCardId);
+
+    if (!authContext) {
+        throw new Error('AuthContext must be used within an AuthProvider');
+    }
 
     // --- (جديد) إضافة ميزة الحفظ التلقائي ---
     useEffect(() => {
@@ -96,7 +102,9 @@ export default function StudioProjectPage() {
               setProjectTitle(projectData.comments || "Untitled Project");
               const initialCards = (projectData.blocks || []).map((card: any) => ({
                 ...card,
-                isGenerating: false
+                isGenerating: false,
+                // (تعديل) تعيين isArabic إلى true افتراضياً إذا لم تكن موجودة
+                isArabic: card.isArabic !== undefined ? card.isArabic : true
               }));
               setCards(initialCards);
               if (initialCards.length > 0) setActiveCardId(initialCards[0].id);
@@ -130,6 +138,7 @@ export default function StudioProjectPage() {
                   }] 
                 },
                 isGenerating: false,
+                isArabic: true, // (تعديل) تعيين isArabic إلى true للبطاقة الجديدة
             };
             setCards([...cards, newCard]);
             setActiveCardId(newCardId);
@@ -170,6 +179,7 @@ export default function StudioProjectPage() {
         }
         
         setIsGenerating(true);
+        setLoadingMessage('جاري توليد المقاطع الصوتية... قد يستغرق هذا بعض الوقت.'); // <--- MESSAGE FOR GENERATION
         setError(null);
         
         const generationPromises = cardsToGenerate.map(card => 
@@ -186,10 +196,12 @@ export default function StudioProjectPage() {
                       .join(' ')
                       .trim();
                       
+                    const isArabic = card.isArabic;
+
                     const createResponse = await fetch('/api/tts/generate-segment', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text, voice: card.voice }),
+                        body: JSON.stringify({ text, voice: card.voice, isArabic }),
                     });
                     
                     if (!createResponse.ok) {
@@ -248,6 +260,7 @@ export default function StudioProjectPage() {
             setError(err.message || "An error occurred during generation.");
         } finally {
             setIsGenerating(false);
+            setLoadingMessage(null); // <--- CLEAR MESSAGE
         }
     };
   
@@ -268,6 +281,7 @@ export default function StudioProjectPage() {
         }
 
         setIsGenerating(true);
+        setLoadingMessage('جاري دمج المقاطع الصوتية وتحميل الملف... قد يستغرق هذا قليلاً.'); // <--- MESSAGE FOR MERGE/DOWNLOAD
         setError(null);
 
         try {
@@ -303,6 +317,7 @@ export default function StudioProjectPage() {
             setError(err.message);
         } finally {
             setIsGenerating(false);
+            setLoadingMessage(null); // <--- CLEAR MESSAGE
         }
     };
   
@@ -337,21 +352,26 @@ export default function StudioProjectPage() {
       });
   
     if (isLoading || authContext?.isLoading || !authContext?.user) {
-      return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-          <div className="text-center space-y-4">
-            <Orbit className="w-12 h-12 animate-spin text-gray-800 mx-auto" />
-            <p className="text-gray-600 text-sm">جاري التحميل...</p>
-          </div>
-        </div>
-      );
+      // (تحميل الصفحة الأولي - باستخدام الشاشة كشاشة كاملة)
+      return <LoadingScreen message="جاري تحميل المشروع والمكتبة الصوتية..." />;
     }
   
     const hasContent = cards.length > 0;
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50 font-sans">
-            <div className="flex-shrink-0 h-14 border-b border-gray-200 bg-white shadow-sm">
+        // تم إضافة `relative` لتمكين التحميل كـ Overlay يغطي المحتوى
+        <div className="flex flex-col h-screen bg-gray-50 font-sans relative"> 
+            
+            {/* --- شاشة التحميل عند الضغط على Generate أو Download --- */}
+            {isGenerating && loadingMessage && (
+                <LoadingScreen 
+                    message={loadingMessage} // <--- USE DYNAMIC MESSAGE
+                    fullScreen={true} 
+                />
+            )}
+            
+            {/* يتم تطبيق opacity و pointer-events-none على المحتوى عندما يتم التوليد */}
+            <div className={`flex-shrink-0 h-14 border-b border-gray-200 bg-white shadow-sm ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
                 <ProjectHeader 
                     projectTitle={projectTitle}
                     setProjectTitle={setProjectTitle}
@@ -361,7 +381,7 @@ export default function StudioProjectPage() {
                 />
             </div>
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className={`flex flex-1 overflow-hidden ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
                 <main className="flex-1 flex flex-col overflow-y-auto">
                     <EditorCanvas 
                         cards={cards}
@@ -395,7 +415,7 @@ export default function StudioProjectPage() {
             </div>
 
             {hasContent && (
-                <div className="flex-shrink-0 h-48 border-t border-gray-200 bg-white shadow-inner">
+                <div className={`flex-shrink-0 h-48 border-t border-gray-200 bg-white shadow-inner ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="h-full flex flex-col">
                         <Timeline cards={cards} />
                     </div>

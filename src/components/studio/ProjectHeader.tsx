@@ -1,6 +1,7 @@
+// src/components/studio/ProjectHeader.tsx
 'use client';
 
-import { ArrowLeft, RotateCcw, RotateCw, MoreHorizontal, Clock, Share, Download, Play, LoaderCircle } from 'lucide-react';
+import { ArrowLeft, Download, Play, LoaderCircle } from 'lucide-react'; // تم حذف RotateCcw, RotateCw, Clock, Share, MoreHorizontal
 import { useRouter } from 'next/navigation';
 
 interface ProjectHeaderProps {
@@ -8,7 +9,7 @@ interface ProjectHeaderProps {
   setProjectTitle: (title: string) => void;
   isGenerating: boolean;
   handleGenerate: () => void;
-  handleDownloadAll: () => void; // --- (جديد) إضافة دالة التحميل الكامل ---
+  handleDownloadAll: () => void;
 }
 
 export default function ProjectHeader({ 
@@ -19,7 +20,7 @@ export default function ProjectHeader({
   return (
     <div className="flex items-center justify-between px-4 h-full">
       <div className="flex items-center gap-2">
-        <button onClick={() => router.push('/projects')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button onClick={() => router.push('/projects')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Back to projects">
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
         <input 
@@ -29,8 +30,7 @@ export default function ProjectHeader({
           className="text-lg font-semibold text-gray-800 bg-transparent focus:outline-none focus:ring-0 border-0"
           placeholder="Project name"
         />
-        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Undo"><RotateCcw className="w-4 h-4 text-gray-600" /></button>
-        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Redo"><RotateCw className="w-4 h-4 text-gray-600" /></button>
+        {/* تم حذف أزرار التراجع والإعادة */}
       </div>
 
       <div className="flex items-center gap-4">
@@ -38,15 +38,13 @@ export default function ProjectHeader({
           {isGenerating ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
           {isGenerating ? 'Generating...' : 'Generate'}
         </button>
-        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="History"><Clock className="w-5 h-5 text-gray-600" /></button>
-        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Share"><Share className="w-5 h-5 text-gray-600" /></button>
         
-        {/* --- (تعديل) ربط دالة التحميل بالزر --- */}
-        <button onClick={handleDownloadAll} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors" title="Download">
+        {/* تم حذف أزرار السجل والمشاركة والمزيد */}
+        
+        <button onClick={handleDownloadAll} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors" title="Download All">
            <Download className="w-5 h-5 text-gray-700" />
         </button>
         
-        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><MoreHorizontal className="w-5 h-5 text-gray-600" /></button>
       </div>
     </div>
   );

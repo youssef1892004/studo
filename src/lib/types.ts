@@ -20,6 +20,7 @@ export interface TTSCardData {
   isGenerating?: boolean;
   job_id?: string; // <--- قم بإضافة هذا السطر
   createdAt?: string | Date; // ✅ أضف دي
+  isArabic?: boolean; // (جديد) لتفعيل خاصية التشكيل
 }
 
 export interface TTSRequestItem {

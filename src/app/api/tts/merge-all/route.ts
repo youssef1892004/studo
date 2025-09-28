@@ -7,19 +7,54 @@ import path from 'path';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 
-// Set ffmpeg path dynamically to support both local and Docker environments
-if (fs.existsSync('/usr/bin/ffmpeg')) {
-    // In a Docker container where ffmpeg is installed via a package manager
-    ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
-} else if (ffmpegStatic) {
-    // In a local environment using the ffmpeg-static package
-    ffmpeg.setFfmpegPath(ffmpegStatic.path);
+// (تعديل) توحيد منطق تعيين المسار وزيادة التسجيل لتشخيص المشكلة
+const setFfmpegPath = () => {
+    // 1. مسار Docker/Linux القياسي
+    const dockerPath = '/usr/bin/ffmpeg';
+    // 2. المسار الذي يوفره ffmpeg-static (يجب أن يكون متاحًا في بيئات Next.js)
+    const staticPath = ffmpegStatic || '';
+    
+    let finalPath = '';
+
+    if (fs.existsSync(dockerPath)) {
+        finalPath = dockerPath;
+        console.log(`FFMPEG Path: Found at Docker path: ${dockerPath}`);
+    } else if (staticPath) {
+        finalPath = staticPath;
+        console.log(`FFMPEG Path: Using ffmpeg-static path: ${staticPath}`);
+    } else {
+        // إذا فشل كل شيء، قم بالتسجيل للمساعدة في التشخيص
+        console.error("FFMPEG Path: Neither Docker path nor ffmpeg-static path is available.");
+    }
+    
+    if (finalPath) {
+        ffmpeg.setFfmpegPath(finalPath);
+        
+        // --- (الإصلاح الحاسم لخطأ EACCES) تعيين صلاحية التنفيذ ---
+        try {
+            if (fs.existsSync(finalPath)) {
+                 fs.chmodSync(finalPath, 0o755); // تعيين صلاحيات التنفيذ
+                 console.log(`FFMPEG Path: Set executable permission (0o755) for ${finalPath}`);
+            }
+        } catch (chmodError) {
+             console.warn(`FFMPEG Path Warning: Failed to set executable permission on ${finalPath}. Error: ${chmodError}`);
+        }
+        
+        // التحقق النهائي بعد التعيين
+        if (!fs.existsSync(finalPath)) {
+             console.error(`FFMPEG Path Error: Configured path does not exist: ${finalPath}`);
+        }
+    }
 }
+
+// تنفيذ دالة تعيين المسار عند التحميل
+setFfmpegPath();
+
 
 export async function POST(request: NextRequest) {
     let tempDir: string | null = null;
     try {
-        // --- (تعديل 1) استقبال أرقام التعريف بدلاً من الروابط ---
+        // --- (تعديل 1) استقبال أرقام التعريف بدلاً من الروابط ---\n
         const { jobIds } = await request.json();
 
         if (!Array.isArray(jobIds) || jobIds.length === 0) {
@@ -32,7 +67,7 @@ export async function POST(request: NextRequest) {
         const downloadedFiles: string[] = [];
         const baseUrl = process.env.APP_URL || new URL(request.url).origin;
 
-        // --- (تعديل 2) جلب الملفات الصوتية باستخدام أرقام التعريف ---
+        // --- (تعديل 2) جلب الملفات الصوتية باستخدام أرقام التعريف ---\n
         for (let i = 0; i < jobIds.length; i++) {
             const jobId = jobIds[i];
             const audioResultUrl = `${baseUrl}/api/tts/result/${jobId}`;
