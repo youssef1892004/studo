@@ -1,0 +1,17 @@
+{
+  "id": "f9465b9d-1b57-47f1-934c-807999011b0f",
+  "name": "studo",
+  "projectId": "ef8f5b73-528f-45bf-bc0b-06663290a170",
+  "ports": [
+    {
+      "expose": true,
+      "number": 3000
+    }
+  ],
+  "publicAccess": {
+    "enabled": true,
+    "domain": "auto"
+  },
+  "resourceTier": "t3",
+  "dockerFileName": "Dockerfile"
+}

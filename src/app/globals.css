@@ -1,0 +1,17 @@
+/* File path: src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #f7f7f7; /* A light grey background similar to ElevenLabs */
+}
+
+/* Custom styles for a cleaner textarea */
+textarea {
+    resize: none;
+}
+textarea:focus {
+    outline: none;
+    box-shadow: none;
+}
