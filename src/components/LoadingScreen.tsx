@@ -1,27 +1,28 @@
 // src/components/LoadingScreen.tsx
-'use client';
-
-import { Orbit } from 'lucide-react';
-import React from 'react';
+import { LoaderCircle } from 'lucide-react';
 
 interface LoadingScreenProps {
-  message?: string;
-  fullScreen?: boolean; // لتحديد ما إذا كانت تغطي الشاشة بالكامل (كـ fixed overlay)
+  message: string;
+  fullScreen?: boolean;
 }
 
-const LoadingScreen = ({ message = 'جاري التحميل...', fullScreen = true }: LoadingScreenProps) => {
-  const containerClasses = fullScreen 
-    ? 'fixed inset-0 bg-gray-50/90 backdrop-blur-sm z-50' // overlay
-    : 'h-full w-full';
-    
+export default function LoadingScreen({ message, fullScreen = false }: LoadingScreenProps) {
   return (
-    <div className={`flex items-center justify-center ${containerClasses}`}>
-      <div className="text-center space-y-4 bg-white p-6 rounded-xl shadow-2xl">
-        <Orbit className="w-12 h-12 animate-spin text-gray-800 mx-auto" />
-        <p className="text-gray-600 text-sm font-semibold">{message}</p>
+    // 1. حاوية التغطية (Overlay): 
+    // تم إضافة dark:bg-gray-900/90 لجعل الخلفية رمادية داكنة مع شفافية 90%
+    <div 
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm transition-colors duration-200 ${fullScreen ? 'h-screen w-screen' : 'absolute'}`}
+    >
+      
+      {/* 2. صندوق التحميل الداخلي: 
+          تم إضافة dark:bg-gray-800 للخلفية الداخلية 
+          و dark:text-gray-200 للنص
+          و dark:text-blue-400 للأيقونة 
+      */}
+      <div className="flex flex-col items-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-2xl transition-colors duration-200">
+        <LoaderCircle className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
+        <p className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-200">{message}</p>
       </div>
     </div>
   );
-};
-
-export default LoadingScreen;
+}

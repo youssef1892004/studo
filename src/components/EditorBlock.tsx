@@ -1,3 +1,4 @@
+// src/components/EditorBlock.tsx
 'use client';
 
 import React, { useEffect, useRef } from 'react';
@@ -66,12 +67,17 @@ export default function EditorBlock({ cardData, onUpdate, isActive, onClick }: E
   return (
     <div
       onClick={() => onClick(cardData.id)}
-      className={`group w-full p-2 rounded-lg transition-all duration-150 relative ${isActive ? 'bg-blue-50' : 'bg-transparent'}`}
+      // تطبيق الوضع الداكن على الخلفية النشطة وخلفية التمرير
+      className={`group w-full p-2 rounded-lg transition-all duration-150 relative ${isActive ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800'}`}
     >
-      {/* --- === تم التعديل هنا: الخط الأزرق على اليمين === --- */}
+      {/* الخط الأزرق على اليمين */}
       <div className={`absolute right-0 top-2 bottom-2 w-1 bg-blue-500 rounded-l-full transition-opacity duration-150 ${isActive ? 'opacity-100' : 'opacity-0'}`}></div>
       
-      <div id={holderId} className="prose max-w-full" />
+      {/* === FIX: تطبيق لون النص الداكن لإجبار المحرر على استخدام نص فاتح في الوضع الليلي === */}
+      <div 
+          id={holderId} 
+          className="prose max-w-full text-gray-900 dark:text-gray-100" 
+      />
     </div>
   );
 }

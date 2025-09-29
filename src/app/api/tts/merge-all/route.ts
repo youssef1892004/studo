@@ -30,15 +30,7 @@ const setFfmpegPath = () => {
     if (finalPath) {
         ffmpeg.setFfmpegPath(finalPath);
         
-        // --- (الإصلاح الحاسم لخطأ EACCES) تعيين صلاحية التنفيذ ---
-        try {
-            if (fs.existsSync(finalPath)) {
-                 fs.chmodSync(finalPath, 0o755); // تعيين صلاحيات التنفيذ
-                 console.log(`FFMPEG Path: Set executable permission (0o755) for ${finalPath}`);
-            }
-        } catch (chmodError) {
-             console.warn(`FFMPEG Path Warning: Failed to set executable permission on ${finalPath}. Error: ${chmodError}`);
-        }
+        // The problematic chmod call was removed. It's not needed in Docker and causes permission errors.
         
         // التحقق النهائي بعد التعيين
         if (!fs.existsSync(finalPath)) {
@@ -65,7 +57,15 @@ export async function POST(request: NextRequest) {
         await fs.promises.mkdir(tempDir, { recursive: true });
 
         const downloadedFiles: string[] = [];
-        const baseUrl = process.env.APP_URL || new URL(request.url).origin;
+        
+        let baseUrl;
+        // In production (Docker), use http://localhost for internal API calls to avoid SSL errors.
+        if (process.env.NODE_ENV === 'production') {
+            baseUrl = `http://127.0.0.1:${process.env.PORT || 3000}`;
+        } else {
+            // In development, use the original request's origin.
+            baseUrl = process.env.APP_URL || new URL(request.url).origin;
+        }
 
         // --- (تعديل 2) جلب الملفات الصوتية باستخدام أرقام التعريف ---\n
         for (let i = 0; i < jobIds.length; i++) {

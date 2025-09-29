@@ -2,8 +2,8 @@
 'use client';
 
 import { AuthContext } from "@/contexts/AuthContext";
-import { getProjectsByUserId, insertProject, deleteProject } from "@/lib/graphql"; // <-- استيراد دالة الحذف
-import { FilePlus, LoaderCircle, Orbit, Trash2 } from "lucide-react"; // <-- استيراد أيقونة الحذف
+import { getProjectsByUserId, insertProject, deleteProject } from "@/lib/graphql";
+import { FilePlus, LoaderCircle, Orbit, Trash2 } from "lucide-react"; 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useContext, useEffect, useState, MouseEvent } from "react";
@@ -79,17 +79,20 @@ export default function ProjectsPage() {
 
 
     if (isLoading) {
-        return <div className="flex items-center justify-center h-screen"><Orbit className="animate-spin" size={48} /></div>;
+        // تنسيقات التحميل
+        return <div className="flex items-center justify-center h-screen text-gray-800 dark:text-white"><Orbit className="animate-spin" size={48} /></div>;
     }
 
     return (
         <>
             <main className="container mx-auto p-8">
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800">My Projects</h1>
+                    {/* العنوان الرئيسي */}
+                    <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Projects</h1>
+                    {/* زر إنشاء مشروع جديد */}
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-black text-white font-semibold rounded-lg hover:bg-gray-800"
+                        className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-blue-600 text-white font-semibold rounded-lg hover:bg-gray-800 dark:hover:bg-blue-700 transition-colors"
                     >
                         <FilePlus size={18} />
                         New Project
@@ -98,15 +101,23 @@ export default function ProjectsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {projects.map(project => (
-                        <Link href={`/studio/${project.id}`} key={project.id} className="group relative block p-6 bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow">
-                            <h2 className="text-xl font-bold truncate mb-2">{project.comments || "Untitled Project"}</h2>
-                            <p className="text-sm text-gray-500">
+                        <Link 
+                            href={`/studio/${project.id}`} 
+                            key={project.id} 
+                            // تنسيقات البطاقة
+                            className="group relative block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-shadow border border-gray-100 dark:border-gray-700"
+                        >
+                            {/* عنوان المشروع */}
+                            <h2 className="text-xl font-bold truncate mb-2 text-gray-900 dark:text-white">{project.comments || "Untitled Project"}</h2>
+                            {/* تاريخ آخر تحديث */}
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Last updated: {new Date(project.last_updated).toLocaleDateString()}
                             </p>
-                            {/* --- (جديد) زر الحذف --- */}
+                            {/* زر الحذف */}
                             <button 
                                 onClick={(e) => handleDeleteClick(project, e)}
-                                className="absolute top-3 right-3 p-2 text-gray-400 rounded-full hover:bg-red-50 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                // تم تغيير top-3 إلى bottom-3
+                                className="absolute bottom-3 right-3 p-2 text-gray-400 dark:text-gray-500 rounded-full hover:bg-red-50 dark:hover:bg-gray-700 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                                 title="Delete project"
                             >
                                 <Trash2 size={18} />
@@ -117,28 +128,33 @@ export default function ProjectsPage() {
 
                  {projects.length === 0 && !isLoading && (
                     <div className="text-center py-20">
-                        <p className="text-gray-500">You don't have any projects yet.</p>
+                        <p className="text-gray-500 dark:text-gray-400">You don't have any projects yet.</p>
                     </div>
                 )}
             </main>
 
-            {/* --- (جديد) نافذة إنشاء مشروع --- */}
+            {/* --- نافذة إنشاء مشروع (Modal) --- */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowCreateModal(false)}>
-                    <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-2xl font-bold mb-4">Create New Project</h2>
+                    <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Create New Project</h2>
                         <form onSubmit={handleCreateProject}>
                             <input
                                 type="text"
                                 value={newProjectName}
                                 onChange={(e) => setNewProjectName(e.target.value)}
                                 placeholder="Enter project name..."
-                                className="w-full p-3 border rounded-md mb-4"
+                                // تنسيقات الإدخال
+                                className="w-full p-3 border rounded-md mb-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 autoFocus
                             />
                             <div className="flex justify-end gap-4">
-                                <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancel</button>
-                                <button type="submit" disabled={isCreating || !newProjectName} className="px-4 py-2 bg-black text-white rounded-md disabled:bg-gray-400">
+                                <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+                                <button 
+                                    type="submit" 
+                                    disabled={isCreating || !newProjectName} 
+                                    className="px-4 py-2 bg-black dark:bg-blue-600 text-white rounded-md disabled:bg-gray-400 dark:disabled:bg-gray-600"
+                                >
                                     {isCreating ? <LoaderCircle className="animate-spin" /> : "Create"}
                                 </button>
                             </div>
@@ -147,20 +163,20 @@ export default function ProjectsPage() {
                 </div>
             )}
 
-            {/* --- (جديد) نافذة تأكيد الحذف --- */}
+            {/* --- نافذة تأكيد الحذف (Modal) --- */}
             {projectToDelete && (
                  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={() => setProjectToDelete(null)}>
-                    <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-2xl font-bold mb-2">Confirm Deletion</h2>
-                        <p className="text-gray-600 mb-6">
+                    <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Confirm Deletion</h2>
+                        <p className="text-gray-600 dark:text-gray-300 mb-6">
                             Are you sure you want to delete the project "<span className="font-semibold">{projectToDelete.comments}</span>"? This action cannot be undone.
                         </p>
                         <div className="flex justify-end gap-4">
-                            <button type="button" onClick={() => setProjectToDelete(null)} className="px-4 py-2 bg-gray-200 rounded-md">Cancel</button>
+                            <button type="button" onClick={() => setProjectToDelete(null)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
                             <button 
                                 onClick={confirmDelete} 
                                 disabled={isDeleting} 
-                                className="px-4 py-2 bg-red-600 text-white rounded-md disabled:bg-red-400 flex items-center"
+                                className="px-4 py-2 bg-red-600 text-white rounded-md disabled:bg-red-400 dark:disabled:bg-red-800/50 flex items-center"
                             >
                                 {isDeleting ? <LoaderCircle className="animate-spin mr-2" size={18} /> : null}
                                 {isDeleting ? "Deleting..." : "Delete"}

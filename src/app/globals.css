@@ -3,8 +3,36 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* الوضع الفاتح الافتراضي */
+  --background: 0 0% 100%; /* الأبيض */
+  --foreground: 222.2 47.4% 11.2%; /* لون نص داكن */
+  
+  --card: 0 0% 100%; /* خلفية البطاقات */
+  --card-foreground: 222.2 47.4% 11.2%;
+  
+  /* ألوان أخرى مهمة */
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 20% 98%;
+}
+
+/* عندما يكون عنصر <html> يحتوي على كلاس "dark" */
+.dark {
+  --background: 222.2 47.4% 11.2%; /* خلفية داكنة جداً */
+  --foreground: 210 20% 98%; /* لون نص فاتح */
+
+  --card: 217.2 32.4% 18.9%; /* خلفية بطاقات أفتح قليلاً من الخلفية العامة */
+  --card-foreground: 210 20% 98%;
+
+  /* ألوان أخرى مهمة */
+  --primary: 210 20% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+}
+
+/* === تأكد أن الـ body يستخدم هذه الألوان === */
 body {
-  background-color: #f7f7f7; /* A light grey background similar to ElevenLabs */
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
 }
 
 /* Custom styles for a cleaner textarea */
@@ -73,5 +101,68 @@ textarea:focus {
     50% {
       transform: translateY(-5px);
     }
+  }
+}
+
+/* ======================================================= */
+/* Editor.js Dark Mode Overrides (FIX for + and Tune icons) */
+/* ======================================================= */
+
+/* استهداف العناصر فقط عندما يكون الوضع الداكن مفعلاً (.dark) */
+:is(.dark) {
+
+  /* خلفية شريط الأدوات الجانبي (حيث يظهر زر الـ +) */
+  .ce-toolbar__actions {
+    background-color: transparent !important; /* <--- جعل الخلفية شفافة */
+    border-color: #4b5563 !important; /* dark:border-gray-600 */
+    box-shadow: none !important;
+  }
+
+  /* لون الأيقونات الافتراضي داخل شريط الأدوات */
+  .ce-toolbar__actions button {
+    color: #d1d5db !important; /* dark:text-gray-300 */
+    background-color: transparent !important; /* <--- جعل خلفية الأزرار شفافة */
+  }
+  
+  /* التنسيق الخاص لزر الإضافة (+) */
+  .ce-toolbar__plus {
+    color: #d1d5db !important; /* الأيقونة */
+    background-color: #4b5563 !important; /* خلفية خفيفة فقط للزر نفسه */
+  }
+  
+  /* حالة التمرير لزر الإضافة (+) */
+  .ce-toolbar__plus:hover {
+    background-color: #6b7280 !important; /* رمادي أغمق عند التمرير */
+  }
+
+  /* حالة التمرير لأزرار الضبط (Tune buttons) مثل سحب المقاطع */
+  .ce-toolbar__tune-btn:hover {
+    background-color: #4b5563 !important; /* dark:bg-gray-600 */
+  }
+
+  /* شريط أدوات التنسيق المضمن (Inline Toolbar - للـ Bold/Header) */
+  .ce-inline-toolbar {
+    background-color: #374151 !important; /* dark:bg-gray-700 */
+    border-color: #4b5563 !important; /* dark:border-gray-600 */
+    color: #d1d5db !important; 
+  }
+
+  /* أيقونات شريط التنسيق المضمن */
+  .ce-inline-toolbar__buttons button {
+    color: #d1d5db !important; /* لون الأيقونات */
+  }
+
+  /* حالة التمرير لأيقونات شريط التنسيق المضمن */
+  .ce-inline-toolbar__buttons button:hover {
+    background-color: #4b5563 !important; /* خلفية التمرير */
+  }
+  
+  /* FIX: Tooltip/Popover Text Color in Dark Mode */
+  .codex-tooltip,
+  .ce-toolbar__tip {
+    background-color: #374151 !important; /* خلفية داكنة */
+    color: #f3f4f6 !important; /* نص فاتح جداً */
+    border: 1px solid #4b5563 !important; /* حد خفيف */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4) !important;
   }
 }

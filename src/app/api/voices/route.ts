@@ -3,6 +3,31 @@
 import { NextResponse } from 'next/server';
 import { Voice } from '@/lib/types';
 
+// --- دالة مساعدة للحصول على توكن الوصول لخدمة TTS الخارجية ---
+async function getAccessToken() {
+  if (!process.env.TTS_API_BASE_URL || !process.env.TTS_API_USERNAME || !process.env.TTS_API_PASSWORD) {
+    throw new Error("TTS Service environment variables are not configured");
+  }
+  const response = await fetch(`${process.env.TTS_API_BASE_URL}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      username: process.env.TTS_API_USERNAME!,
+      password: process.env.TTS_API_PASSWORD!,
+    }),
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("TTS Token Auth Failed:", errorBody);
+      throw new Error('Failed to authenticate with external TTS service');
+  }
+  const data = await response.json();
+  return data.access_token;
+}
+// ------------------------------------------------------------
+
+
 // --- القائمة النهائية والدقيقة لتحديد الجنس باستخدام معرف الصوت (Voice ID) ---
 const voiceGenderMap: Record<string, Voice['gender']> = {
     // Custom English Voices
@@ -133,8 +158,18 @@ const getLanguageName = (code: string): string => {
 
 export async function GET() {
   try {
+    // 1. الحصول على التوكن الخارجي لخدمة TTS
+    const externalToken = await getAccessToken(); 
+    
     const provider = process.env.TTS_PROVIDER_NAME || 'ghaymah';
-    const voicesResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts/voices/${provider}`);
+    
+    // 2. إرسال طلب جلب الأصوات مع التوكن في الـ Header
+    const voicesResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts/voices/${provider}`, {
+        headers: {
+            'Authorization': `Bearer ${externalToken}`,
+        },
+        cache: 'no-store',
+    });
 
     if (!voicesResponse.ok) {
       const errorData = await voicesResponse.json();
@@ -167,6 +202,6 @@ export async function GET() {
 
   } catch (error: any) {
     console.error("Error fetching voices:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to fetch voices." }, { status: 500 });
   }
 }

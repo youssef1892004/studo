@@ -11,7 +11,7 @@ import { Orbit, Play, LoaderCircle } from 'lucide-react';
 import { AuthContext } from '@/contexts/AuthContext';
 import { getProjectById, updateProject } from '@/lib/graphql';
 import getMP3Duration from 'get-mp3-duration';
-
+import { uploadAudioSegment } from '@/lib/tts';
 // استيراد المكونات
 import ProjectHeader from '@/components/studio/ProjectHeader';
 import EditorCanvas from '@/components/studio/EditorCanvas';
@@ -25,12 +25,12 @@ export default function StudioProjectPage() {
     const [cards, setCards] = useState<TTSCardData[]>([]);
     const [activeCardId, setActiveCardId] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState<string | null>(null); // <--- NEW STATE FOR DYNAMIC MESSAGE
+    const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pageMessage, setPageMessage] = useState<string | null>(null);
     
-    // --- (جديد) إضافة متغير لتتبع حالة التحميل الأولي ---
+    // إضافة متغير لتتبع حالة التحميل الأولي
     const isInitialLoad = useRef(true);
     
     const [languageFilter, setLanguageFilter] = useState('all');
@@ -50,7 +50,7 @@ export default function StudioProjectPage() {
         throw new Error('AuthContext must be used within an AuthProvider');
     }
 
-    // --- (جديد) إضافة ميزة الحفظ التلقائي ---
+    // إضافة ميزة الحفظ التلقائي
     useEffect(() => {
         // لا تقم بالحفظ عند التحميل الأولي للصفحة
         if (isInitialLoad.current) {
@@ -63,7 +63,6 @@ export default function StudioProjectPage() {
             updateProject(projectId, cards, projectTitle)
                 .then(() => {
                     console.log("Project auto-saved successfully.");
-                    // يمكنك إضافة رسالة للمستخدم هنا إذا أردت
                 })
                 .catch(err => {
                     console.error("Auto-save failed:", err);
@@ -76,7 +75,6 @@ export default function StudioProjectPage() {
             clearTimeout(handler);
         };
     }, [cards, projectTitle, projectId]);
-
 
     useEffect(() => {
         const intervals = pollingIntervals.current;
@@ -103,8 +101,8 @@ export default function StudioProjectPage() {
               const initialCards = (projectData.blocks || []).map((card: any) => ({
                 ...card,
                 isGenerating: false,
-                // (تعديل) تعيين isArabic إلى true افتراضياً إذا لم تكن موجودة
-                isArabic: card.isArabic !== undefined ? card.isArabic : true
+                // تعيين isArabic إلى true افتراضياً إذا لم تكن موجودة
+                isArabic: card.isArabic !== undefined ? card.isArabic : false
               }));
               setCards(initialCards);
               if (initialCards.length > 0) setActiveCardId(initialCards[0].id);
@@ -115,7 +113,7 @@ export default function StudioProjectPage() {
             setError(`Failed to load project data: ${e.message}`);
           } finally {
             setIsLoading(false);
-            // --- (جديد) تم انتهاء التحميل الأولي ---
+            // تم انتهاء التحميل الأولي
             setTimeout(() => { isInitialLoad.current = false; }, 500);
           }
         }
@@ -128,7 +126,7 @@ export default function StudioProjectPage() {
             const newCardId = uuidv4();
             const newCard: TTSCardData = {
                 id: newCardId, 
-                voice: voices[0].name,
+                voice: "ar-EG-ShakirNeural",
                 data: { 
                   time: Date.now(), 
                   blocks: [{ 
@@ -138,7 +136,7 @@ export default function StudioProjectPage() {
                   }] 
                 },
                 isGenerating: false,
-                isArabic: true, // (تعديل) تعيين isArabic إلى true للبطاقة الجديدة
+                isArabic: false, // تعيين isArabic إلى true للبطاقة الجديدة
             };
             setCards([...cards, newCard]);
             setActiveCardId(newCardId);
@@ -179,7 +177,7 @@ export default function StudioProjectPage() {
         }
         
         setIsGenerating(true);
-        setLoadingMessage('جاري توليد المقاطع الصوتية... قد يستغرق هذا بعض الوقت.'); // <--- MESSAGE FOR GENERATION
+        setLoadingMessage('جاري توليد المقاطع الصوتية... قد يستغرق هذا بعض الوقت.');
         setError(null);
         
         const generationPromises = cardsToGenerate.map(card => 
@@ -226,18 +224,36 @@ export default function StudioProjectPage() {
                                 clearInterval(pollingIntervals.current[card.id]);
                                 delete pollingIntervals.current[card.id];
                                 
-                                const audioResponse = await fetch(`/api/tts/result/${job_id}`);
-                                const audioBlob = await audioResponse.blob();
-                                const audioUrl = URL.createObjectURL(audioBlob);
-                                const buffer = await audioBlob.arrayBuffer();
-                                const duration = getMP3Duration(Buffer.from(buffer));
-                                
-                                updateCard(card.id, { 
-                                  isGenerating: false, 
-                                  audioUrl, 
-                                  duration: duration / 1000 
-                                });
-                                resolve();
+                                try {
+                                    const audioResponse = await fetch(`/api/tts/result/${job_id}`);
+                                    const audioBlob = await audioResponse.blob();
+                                    const audioUrl = URL.createObjectURL(audioBlob);
+                                    const persistentUrl = await uploadAudioSegment(audioBlob, card.id); 
+                                    let durationInSeconds = 0;
+                                    // === كتلة try...catch لحساب المدة الآمن ===
+                                    try {
+                                        const buffer = await audioBlob.arrayBuffer();
+                                        // استخدام Buffer.from يتطلب بيئة Node.js (وهي متاحة في Next.js)
+                                        const duration = getMP3Duration(Buffer.from(buffer)); 
+                                        durationInSeconds = duration / 1000;
+                                    } catch (durationError) {
+                                        console.error(`Could not calculate MP3 duration for job ${job_id}. This is non-fatal:`, durationError);
+                                        // نترك المدة 0 أو قيمة افتراضية.
+                                    }
+                                    // =========================================
+                                    
+                                    updateCard(card.id, { 
+                                      isGenerating: false, 
+                                      audioUrl, 
+                                      persistentAudioUrl: persistentUrl,
+                                      duration: durationInSeconds 
+                                    });
+                                    resolve();
+                                } catch (resultError) {
+                                    console.error(`Error processing audio result for job ${job_id}:`, resultError);
+                                    reject(new Error(`Failed to process audio for job ${job_id}`));
+                                }
+
                             } else if (statusData.status === 'failed') {
                                 throw new Error('Audio generation failed on backend.');
                             }
@@ -260,7 +276,7 @@ export default function StudioProjectPage() {
             setError(err.message || "An error occurred during generation.");
         } finally {
             setIsGenerating(false);
-            setLoadingMessage(null); // <--- CLEAR MESSAGE
+            setLoadingMessage(null);
         }
     };
   
@@ -281,7 +297,7 @@ export default function StudioProjectPage() {
         }
 
         setIsGenerating(true);
-        setLoadingMessage('جاري دمج المقاطع الصوتية وتحميل الملف... قد يستغرق هذا قليلاً.'); // <--- MESSAGE FOR MERGE/DOWNLOAD
+        setLoadingMessage('جاري دمج المقاطع الصوتية وتحميل الملف... قد يستغرق هذا قليلاً.');
         setError(null);
 
         try {
@@ -317,7 +333,7 @@ export default function StudioProjectPage() {
             setError(err.message);
         } finally {
             setIsGenerating(false);
-            setLoadingMessage(null); // <--- CLEAR MESSAGE
+            setLoadingMessage(null);
         }
     };
   
@@ -352,26 +368,35 @@ export default function StudioProjectPage() {
       });
   
     if (isLoading || authContext?.isLoading || !authContext?.user) {
-      // (تحميل الصفحة الأولي - باستخدام الشاشة كشاشة كاملة)
       return <LoadingScreen message="جاري تحميل المشروع والمكتبة الصوتية..." />;
     }
   
     const hasContent = cards.length > 0;
 
+    // if (error) {
+    //     return (
+    //         <div className="p-8 text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-300 h-screen min-h-screen flex items-center justify-center">
+    //             <div className="text-center">
+    //                 <h2 className="text-xl font-semibold mb-2 text-red-700 dark:text-red-400">حدث خطأ</h2>
+    //                 <p className="text-red-600 dark:text-red-300">{error}</p>
+    //             </div>
+    //         </div>
+    //     );
+    // }
+
     return (
-        // تم إضافة `relative` لتمكين التحميل كـ Overlay يغطي المحتوى
-        <div className="flex flex-col h-screen bg-gray-50 font-sans relative"> 
+        <div className="flex flex-col h-screen bg-white dark:bg-gray-900 font-sans relative transition-colors duration-200"> 
             
-            {/* --- شاشة التحميل عند الضغط على Generate أو Download --- */}
+            {/* شاشة التحميل عند الضغط على Generate أو Download */}
             {isGenerating && loadingMessage && (
                 <LoadingScreen 
-                    message={loadingMessage} // <--- USE DYNAMIC MESSAGE
+                    message={loadingMessage}
                     fullScreen={true} 
                 />
             )}
             
-            {/* يتم تطبيق opacity و pointer-events-none على المحتوى عندما يتم التوليد */}
-            <div className={`flex-shrink-0 h-14 border-b border-gray-200 bg-white shadow-sm ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+            {/* شريط العنوان (ProjectHeader Container) */}
+            <div className={`flex-shrink-0 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-all duration-200 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
                 <ProjectHeader 
                     projectTitle={projectTitle}
                     setProjectTitle={setProjectTitle}
@@ -381,8 +406,8 @@ export default function StudioProjectPage() {
                 />
             </div>
 
-            <div className={`flex flex-1 overflow-hidden ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
-                <main className="flex-1 flex flex-col overflow-y-auto">
+            <div className={`flex flex-1 overflow-hidden transition-opacity duration-200 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+                <main className="flex-1 flex flex-col overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
                     <EditorCanvas 
                         cards={cards}
                         setCards={setCards}
@@ -397,25 +422,27 @@ export default function StudioProjectPage() {
                     />
                 </main>
                 
-                <RightSidebar
-                    voices={filteredVoices}
-                    onApplyVoice={handleApplyVoice}
-                    activeVoiceName={activeCard?.voice}
-                    languages={languages}
-                    countries={countries}
-                    languageFilter={languageFilter}
-                    setLanguageFilter={setLanguageFilter}
-                    countryFilter={countryFilter}
-                    setCountryFilter={setCountryFilter}
-                    genderFilter={genderFilter}
-                    setGenderFilter={setGenderFilter}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                />
+                <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 transition-colors duration-200">
+                    <RightSidebar
+                        voices={filteredVoices}
+                        onApplyVoice={handleApplyVoice}
+                        activeVoiceName={activeCard?.voice}
+                        languages={languages}
+                        countries={countries}
+                        languageFilter={languageFilter}
+                        setLanguageFilter={setLanguageFilter}
+                        countryFilter={countryFilter}
+                        setCountryFilter={setCountryFilter}
+                        genderFilter={genderFilter}
+                        setGenderFilter={setGenderFilter}
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                    />
+                </div>
             </div>
 
             {hasContent && (
-                <div className={`flex-shrink-0 h-48 border-t border-gray-200 bg-white shadow-inner ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`flex-shrink-0 h-48 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-inner transition-all duration-200 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="h-full flex flex-col">
                         <Timeline cards={cards} />
                     </div>

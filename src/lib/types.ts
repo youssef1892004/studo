@@ -21,6 +21,7 @@ export interface TTSCardData {
   job_id?: string; // <--- قم بإضافة هذا السطر
   createdAt?: string | Date; // ✅ أضف دي
   isArabic?: boolean; // (جديد) لتفعيل خاصية التشكيل
+  persistentAudioUrl?: string;
 }
 
 export interface TTSRequestItem {
