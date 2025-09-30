@@ -1,4 +1,5 @@
 // File path: src/app/layout.tsx
+import MobileBlocker from '@/components/MobileBlocker';
 import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
@@ -12,33 +13,33 @@ const cairo = Cairo({ subsets: ["arabic"] });
 // SEO Metadata Enhancement
 export const metadata: Metadata = {
   title: {
-    default: "Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي",
-    template: "%s | Studio",
+    default: "AI Voice Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي",
+    template: "%s | AI Voice Studio",
   },
-  description: "حوّل نصوصك العربية إلى أصوات طبيعية واحترافية باستخدام تقنية الذكاء الاصطناعي المتقدمة من Studio. مثالي لمنشئي المحتوى والتعليم والأعمال.",
+  description: "حوّل نصوصك العربية إلى أصوات طبيعية واحترافية باستخدام تقنية الذكاء الاصطناعي المتقدمة من AI Voice Studio. مثالي لمنشئي المحتوى والتعليم والأعمال.",
   keywords: [
     'تحويل النص إلى كلام', 
     'TTS', 
     'Arabic TTS', 
     'نص إلى صوت', 
     'صوت عربي', 
-    'studio', 
+    'ai voice studio', 
     'توليد صوت', 
     'ذكاء اصطناعي صوت', 
     'AI voice',
     'النطق العربي',
     'صوت احترافي'
   ],
-  creator: 'Studio Team',
-  publisher: 'Studio',
+  creator: 'AI Voice Studio Team',
+  publisher: 'AI Voice Studio',
   openGraph: {
-    title: 'Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي',
+    title: 'AI Voice Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي',
     description: 'أصوات عربية طبيعية واحترافية لجميع احتياجاتك. جرب الآن!',
     url: 'https://www.voicestudio.space', // Replace with your actual domain
-    siteName: 'Studio',
+    siteName: 'AI Voice Studio',
     images: [
       {
-        url: '/og-image.png', // Make sure to create this image
+        url: '/logos/logo.png', // Make sure to create this image
         width: 1200,
         height: 630,
       },
@@ -48,9 +49,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي',
-    description: 'حوّل نصوصك العربية إلى أصوات طبيعية واحترافية باستخدام تقنية الذكاء الاصطناعي المتقدمة من Studio.',
-    images: ['/twitter-image.png'], // Make sure to create this image
+    title: 'AI Voice Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي',
+    description: 'حوّل نصوصك العربية إلى أصوات طبيعية واحترافية باستخدام تقنية الذكاء الاصطناعي المتقدمة من AI Voice Studio.',
+    images: ['/logos/logo.png'], // Make sure to create this image
   },
   robots: {
     index: true,
@@ -64,7 +65,7 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: '/favicon.ico',
+    icon: '/logos/logo.png',
   },
 };
 
@@ -83,6 +84,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <body className={cairo.className}>
+        <MobileBlocker />
         <ThemeProvider>
           <AuthProvider>
               <DynamicNavbar />
@@ -99,9 +101,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Organization",
-            "name": "Studio",
+            "name": "AI Voice Studio",
             "url": "https://www.voicestudio.space",
-            "logo": "https://www.voicestudio.space/logo.png"
+            "logo": "https://www.voicestudio.space/logos/logo.png"
           }) }}
         />
       </body>

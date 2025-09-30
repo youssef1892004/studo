@@ -21,10 +21,6 @@ export default function LandingPage() {
             text: "أول موقع في الوطن العربي متخصص في AI Studio", 
             audioUrl: "/generated_audio/1.mp3" 
         },
-        { name: "فاطمة", dialect: "سعودي", 
-            text: "مرحباً بك في محرر الصوت", 
-            audioUrl: "/generated_audio/2.mp3" 
-        },
         { name: "محمد", dialect: "مغربي", 
             text: "مرحباً بك في مشروعك الجديد", 
             audioUrl: "/generated_audio/3.mp3" 
@@ -216,13 +212,30 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <section className="relative z-10 py-20 px-6 bg-white">
+          <div className="max-w-6xl mx-auto text-center">
+            <h2 className="text-3xl font-bold text-gray-500 mb-12">Our Clients</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+              <div className="text-center">
+                <img src="/logos/ghaymah.jpg" alt="ghaymah" className="h-32 mx-auto transition-transform duration-300 ease-in-out hover:scale-110" />
+              </div>
+              <div className="text-center">
+                <img src="/logos/ilibrary.jpg" alt="ilibrary" className="h-32 mx-auto transition-transform duration-300 ease-in-out hover:scale-110" />
+              </div>
+              <div className="text-center">
+                <img src="/logos/solid-point.jpg" alt="SOLID POINT" className="h-32 mx-auto transition-transform duration-300 ease-in-out hover:scale-110" />
+              </div>
+            </div>
+          </div>
+        </section>
+
         <footer className="relative z-10 border-t border-gray-200 py-12 px-6 bg-gray-100">
           <div className="max-w-7xl mx-auto text-center">
             <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
-              Arabic AI Studio
+              ai voice studio
             </div>
             <div className="text-gray-600 text-sm">
-              © 2024 Arabic AI Studio. All rights reserved.
+              © 2024 ai voice studio. All rights reserved.
             </div>
           </div>
         </footer>

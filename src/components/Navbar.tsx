@@ -59,7 +59,7 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-full">
           <div className="flex-shrink-0">
             <Link href="/" className="text-2xl font-bold text-gray-900 transition-colors hover:text-blue-600">
-              Studio
+              Ai Voice Studio
             </Link>
           </div>
           
@@ -70,7 +70,7 @@ export default function Navbar() {
               href="/about" 
               className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
             >
-              حول
+              ABOUT
             </Link>
             
             {/* === [FIX] تم إزالة زر تبديل الثيم هنا === */}
@@ -86,10 +86,10 @@ export default function Navbar() {
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-red-100 hover:text-red-600 transition-colors duration-200"
-                  aria-label="تسجيل الخروج"
+                  aria-label="register "
                 >
                   <LogOut className="h-5 w-5" />
-                  <span className="hidden md:inline">خروج</span>
+                  <span className="hidden md:inline">Logout</span>
                 </button>
               </>
             ) : (
@@ -97,12 +97,12 @@ export default function Navbar() {
                 {/* [تعديل] تم إزالة تنسيقات الوضع الداكن من زر الدخول */}
                 <Link href="/login" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200">
                    <LogIn className="h-5 w-5 flex-shrink-0" />
-                   <span>دخول</span>
+                   <span>login</span>
                 </Link>
                 {/* [تعديل] تم إزالة تنسيقات الوضع الداكن من زر التسجيل */}
                 <Link href="/register" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-black transition-colors duration-200">
                   <UserPlus className="h-5 w-5 flex-shrink-0" />
-                  <span>تسجيل</span>
+                  <span>register</span>
                 </Link>
               </>
             )}
