@@ -19,9 +19,6 @@ export default function SegmentPlayer({ audioUrl, text }: SegmentPlayerProps) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // --- تم حذف سطر audio.src = audioUrl; --- 
-    // نعتمد الآن فقط على خاصية src في عنصر <audio> بالـ JSX
-    
     setIsMediaReady(false);
     setIsPlaying(false);
 
@@ -89,7 +86,8 @@ export default function SegmentPlayer({ audioUrl, text }: SegmentPlayerProps) {
   };
 
   return (
-    <div className="mt-2 flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 cursor-pointer transition-colors duration-200" onClick={togglePlayPause}>
+    // [MODIFIED] تم إزالة gap-3 لضبط التنسيق، وإزالة كلاسات الوضع الداكن
+    <div className="mt-2 flex items-center p-2 bg-gray-50 rounded-md border border-gray-200 cursor-pointer transition-colors duration-200" onClick={togglePlayPause}>
       {/* Audio element src is set here and managed by React */}
       <audio ref={audioRef} src={audioUrl} preload="metadata" style={{ display: 'none' }}></audio> 
       
@@ -98,8 +96,8 @@ export default function SegmentPlayer({ audioUrl, text }: SegmentPlayerProps) {
         disabled={!isMediaReady} // تعطيل الزر إذا كان التحميل جارياً
         className={`p-2 rounded-full transition-colors flex-shrink-0 ${
             isMediaReady 
-                ? 'bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white' 
-                : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                ? 'bg-gray-200 hover:bg-gray-300 text-gray-700' 
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
         }`}
       >
         {!isMediaReady ? (
@@ -111,9 +109,10 @@ export default function SegmentPlayer({ audioUrl, text }: SegmentPlayerProps) {
         )}
       </button>
       
-      <p className="text-sm text-gray-600 dark:text-gray-300 truncate" dir="rtl">
-        {isMediaReady ? text : "جاري تحميل المقطع الصوتي..."}
-      </p>
+      {/* [FIX] استبدال نص المقطع برسالة حالة بسيطة لتجنب التكرار */}
+      <span className="flex-1 text-right pr-2 text-sm font-medium text-gray-600 truncate select-none" dir="rtl">
+        {isMediaReady ? "المقطع الصوتي جاهز" : "جاري تحميل المقطع الصوتي..."}
+      </span>
     </div>
   );
 }

@@ -17,11 +17,15 @@ import ProjectHeader from '@/components/studio/ProjectHeader';
 import EditorCanvas from '@/components/studio/EditorCanvas';
 import RightSidebar from '@/components/studio/RightSidebar';
 import Timeline from '@/components/Timeline';
-import LoadingScreen from '@/components/LoadingScreen';
+// import LoadingScreen from '@/components/LoadingScreen';
+
+// [NEW/MODIFIED] قائمة المعرّفات للأصوات الاحترافية (Pro)
+const PRO_VOICES_IDS = ['0', '1', '2', '3'];
 
 export default function StudioProjectPage() {
     const [projectTitle, setProjectTitle] = useState("Untitled Project");
-    const [voices, setVoices] = useState<Voice[]>([]);
+    // [MODIFIED] تم تعديل نوع Voice ليشمل isPro
+    const [voices, setVoices] = useState<(Voice & { isPro?: boolean })[]>([]);
     const [cards, setCards] = useState<TTSCardData[]>([]);
     const [activeCardId, setActiveCardId] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -33,6 +37,9 @@ export default function StudioProjectPage() {
     // إضافة متغير لتتبع حالة التحميل الأولي
     const isInitialLoad = useRef(true);
     
+    // [NEW STATE] لتحديد وضع الأصوات (Free/Pro)
+    const [voiceMode, setVoiceMode] = useState<'Free' | 'Pro'>('Free'); 
+
     const [languageFilter, setLanguageFilter] = useState('all');
     const [countryFilter, setCountryFilter] = useState('all');
     const [genderFilter, setGenderFilter] = useState('all');
@@ -95,14 +102,20 @@ export default function StudioProjectPage() {
               getProjectById(projectId)
             ]);
             
-            setVoices(fetchedVoices);
+            // [FIX] تحديد الأصوات الاحترافية بناءً على الـ IDs الرقمية
+            const voicesWithMode = fetchedVoices.map(v => ({
+                ...v,
+                // تحديد ما إذا كان الصوت هو برو باستخدام القائمة الجديدة
+                isPro: PRO_VOICES_IDS.includes(v.name)
+            }));
+
+            setVoices(voicesWithMode);
             if (projectData) {
               setProjectTitle(projectData.comments || "Untitled Project");
               const initialCards = (projectData.blocks || []).map((card: any) => ({
                 ...card,
                 isGenerating: false,
-                // تعيين isArabic إلى true افتراضياً إذا لم تكن موجودة
-                isArabic: card.isArabic !== undefined ? card.isArabic : false
+                isArabic: card.provider === 'ghaymah_pro' || card.arabic === true || PRO_VOICES_IDS.includes(card.voice)
               }));
               setCards(initialCards);
               if (initialCards.length > 0) setActiveCardId(initialCards[0].id);
@@ -121,12 +134,21 @@ export default function StudioProjectPage() {
       loadProjectAndVoices();
     }, [authContext?.user?.id, projectId]);
 
+    // [MODIFIED LOGIC] تعديل دالة إضافة البطاقة بناءً على الـ voiceMode
     const addCard = () => {
         if (voices.length > 0) {
             const newCardId = uuidv4();
+            
+            const isProMode = voiceMode === 'Pro';
+            
+            // البحث عن أول صوت يطابق الوضع المختار
+            const defaultVoice = isProMode 
+                ? (voices.find(v => v.isPro)?.name || "0") // Default to '0' if Pro is selected
+                : (voices.find(v => !v.isPro)?.name || "ar-EG-ShakirNeural"); // Default to 'ar-EG-ShakirNeural' if Free is selected
+
             const newCard: TTSCardData = {
                 id: newCardId, 
-                voice: "ar-EG-ShakirNeural",
+                voice: defaultVoice,
                 data: { 
                   time: Date.now(), 
                   blocks: [{ 
@@ -136,7 +158,8 @@ export default function StudioProjectPage() {
                   }] 
                 },
                 isGenerating: false,
-                isArabic: false, // تعيين isArabic إلى true للبطاقة الجديدة
+                // تعيين isArabic (التشكيل) بناءً على وضع الصوت المختار (Pro mode)
+                isArabic: isProMode, 
             };
             setCards([...cards, newCard]);
             setActiveCardId(newCardId);
@@ -159,9 +182,14 @@ export default function StudioProjectPage() {
         }
     };
     
+    // [MODIFIED LOGIC] تعديل دالة تطبيق الصوت لتحديد isArabic بناءً على ما إذا كان الصوت المطبق هو Pro
     const handleApplyVoice = (voiceName: string) => {
       if (activeCardId) {
-        updateCard(activeCardId, { voice: voiceName });
+        const selectedVoice = voices.find(v => v.name === voiceName);
+        const isProVoice = selectedVoice?.isPro ?? false;
+        
+        // إذا كان الصوت المطبق هو Pro، نعتبر isArabic مفعلة (للتشكيل)
+        updateCard(activeCardId, { voice: voiceName, isArabic: isProVoice });
       }
     };
     
@@ -351,12 +379,17 @@ export default function StudioProjectPage() {
       }])
     ).values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   
+    // [MODIFIED LOGIC] تصفية الأصوات حسب الفلاتر ووضع الصوت المختار
     const filteredVoices = voices
       .filter(voice => {
           const langMatch = languageFilter === 'all' || voice.languageCode === languageFilter;
           const countryMatch = countryFilter === 'all' || voice.countryCode === countryFilter;
           const genderMatch = genderFilter === 'all' || voice.gender === genderFilter;
-          return langMatch && countryMatch && genderMatch;
+          
+          // [FIXED] استخدام تعبير شرطي بسيط ومباشر للتصفية الصحيحة
+          const modeMatch = voiceMode === 'Pro' ? voice.isPro : !voice.isPro;
+
+          return langMatch && countryMatch && genderMatch && modeMatch;
       })
       .filter(voice => {
           if (searchTerm.trim() === '') return true;
@@ -368,35 +401,27 @@ export default function StudioProjectPage() {
       });
   
     if (isLoading || authContext?.isLoading || !authContext?.user) {
-      return <LoadingScreen message="جاري تحميل المشروع والمكتبة الصوتية..." />;
+      // [FIX] استخدام مؤشر تحميل بسيط عند تحميل البيانات الأولية
+      return <div className="flex items-center justify-center h-screen text-gray-800 dark:text-white"><Orbit className="animate-spin" size={48} /></div>;
     }
   
     const hasContent = cards.length > 0;
-
-    // if (error) {
-    //     return (
-    //         <div className="p-8 text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-300 h-screen min-h-screen flex items-center justify-center">
-    //             <div className="text-center">
-    //                 <h2 className="text-xl font-semibold mb-2 text-red-700 dark:text-red-400">حدث خطأ</h2>
-    //                 <p className="text-red-600 dark:text-red-300">{error}</p>
-    //             </div>
-    //         </div>
-    //     );
-    // }
 
     return (
         <div className="flex flex-col h-screen bg-white dark:bg-gray-900 font-sans relative transition-colors duration-200"> 
             
             {/* شاشة التحميل عند الضغط على Generate أو Download */}
             {isGenerating && loadingMessage && (
-                <LoadingScreen 
-                    message={loadingMessage}
-                    fullScreen={true} 
-                />
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-transparent pointer-events-none">
+                    <div className="flex flex-col items-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-2xl pointer-events-auto">
+                        <LoaderCircle className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
+                        <p className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-200">{loadingMessage}</p>
+                    </div>
+                </div>
             )}
             
             {/* شريط العنوان (ProjectHeader Container) */}
-            <div className={`flex-shrink-0 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-all duration-200 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div className={`flex-shrink-0 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-all duration-200`}>
                 <ProjectHeader 
                     projectTitle={projectTitle}
                     setProjectTitle={setProjectTitle}
@@ -406,9 +431,9 @@ export default function StudioProjectPage() {
                 />
             </div>
 
-            <div className={`flex flex-1 overflow-hidden transition-opacity duration-200 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+             <div className={`flex flex-1 overflow-hidden transition-opacity duration-200`}>
                 <main className="flex-1 flex flex-col overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-                    <EditorCanvas 
+                     <EditorCanvas 
                         cards={cards}
                         setCards={setCards}
                         voices={voices}
@@ -423,7 +448,7 @@ export default function StudioProjectPage() {
                 </main>
                 
                 <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 transition-colors duration-200">
-                    <RightSidebar
+                     <RightSidebar
                         voices={filteredVoices}
                         onApplyVoice={handleApplyVoice}
                         activeVoiceName={activeCard?.voice}
@@ -437,12 +462,15 @@ export default function StudioProjectPage() {
                         setGenderFilter={setGenderFilter}
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
+                        // [NEW PROPS]
+                        voiceMode={voiceMode}
+                        setVoiceMode={setVoiceMode}
                     />
                 </div>
             </div>
 
             {hasContent && (
-                <div className={`flex-shrink-0 h-48 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-inner transition-all duration-200 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className={`flex-shrink-0 h-48 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-inner transition-all duration-200`}>
                     <div className="h-full flex flex-col">
                         <Timeline cards={cards} />
                     </div>

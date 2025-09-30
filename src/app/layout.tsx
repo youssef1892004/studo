@@ -22,20 +22,20 @@ export const metadata: Metadata = {
     'Arabic TTS', 
     'نص إلى صوت', 
     'صوت عربي', 
-    'studo', 
+    'studio', 
     'توليد صوت', 
     'ذكاء اصطناعي صوت', 
     'AI voice',
     'النطق العربي',
     'صوت احترافي'
   ],
-  creator: 'Studo Team',
-  publisher: 'Studo',
+  creator: 'Studio Team',
+  publisher: 'Studio',
   openGraph: {
-    title: 'Studo | تحويل النص إلى كلام عربي بالذكاء الاصطناعي',
+    title: 'Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي',
     description: 'أصوات عربية طبيعية واحترافية لجميع احتياجاتك. جرب الآن!',
     url: 'https://www.voicestudio.space', // Replace with your actual domain
-    siteName: 'Studo',
+    siteName: 'Studio',
     images: [
       {
         url: '/og-image.png', // Make sure to create this image
@@ -48,8 +48,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Studo | تحويل النص إلى كلام عربي بالذكاء الاصطناعي',
-    description: 'حوّل نصوصك العربية إلى أصوات طبيعية واحترافية باستخدام تقنية الذكاء الاصطناعي المتقدمة من Studo.',
+    title: 'Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي',
+    description: 'حوّل نصوصك العربية إلى أصوات طبيعية واحترافية باستخدام تقنية الذكاء الاصطناعي المتقدمة من Studio.',
     images: ['/twitter-image.png'], // Make sure to create this image
   },
   robots: {
@@ -99,7 +99,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Organization",
-            "name": "Studo",
+            "name": "Studio",
             "url": "https://www.voicestudio.space",
             "logo": "https://www.voicestudio.space/logo.png"
           }) }}

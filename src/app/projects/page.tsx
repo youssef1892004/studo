@@ -128,7 +128,7 @@ export default function ProjectsPage() {
 
                  {projects.length === 0 && !isLoading && (
                     <div className="text-center py-20">
-                        <p className="text-gray-500 dark:text-gray-400">You don't have any projects yet.</p>
+                        <p className="text-gray-500 dark:text-gray-400">You don&apos;t have any projects yet.</p>
                     </div>
                 )}
             </main>
@@ -169,7 +169,7 @@ export default function ProjectsPage() {
                     <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Confirm Deletion</h2>
                         <p className="text-gray-600 dark:text-gray-300 mb-6">
-                            Are you sure you want to delete the project "<span className="font-semibold">{projectToDelete.comments}</span>"? This action cannot be undone.
+                            Are you sure you want to delete the project &quot;<span className="font-semibold">{projectToDelete.comments}</span>&quot;? This action cannot be undone.
                         </p>
                         <div className="flex justify-end gap-4">
                             <button type="button" onClick={() => setProjectToDelete(null)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>

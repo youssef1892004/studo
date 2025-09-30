@@ -3,7 +3,7 @@
 
 import { TTSCardData } from '@/lib/types';
 import { Play, Pause } from 'lucide-react';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 // --- مكون الموجة الصوتية المتجاوب ---
 const Waveform = ({ isPlaying, width }: { isPlaying: boolean, width: number }) => {
@@ -76,7 +76,7 @@ export default function Timeline({ cards }: TimelineProps) {
     const timelineContainerRef = useRef<HTMLDivElement>(null);
     const animationFrameRef = useRef<number>();
     
-    const audioSegments = cards.filter(c => c.audioUrl && typeof c.duration === 'number' && c.duration > 0);
+    const audioSegments = useMemo(() => cards.filter(c => c.audioUrl && typeof c.duration === 'number' && c.duration > 0), [cards]);
 
     useEffect(() => {
         const total = audioSegments.reduce((sum, card) => sum + (card.duration || 0), 0);
@@ -88,7 +88,7 @@ export default function Timeline({ cards }: TimelineProps) {
             setCurrentCardIndex(0);
             setIsPlaying(false);
         }
-    }, [cards]);
+    }, [audioSegments]);
 
     useEffect(() => {
         const observer = new ResizeObserver(entries => {
@@ -106,7 +106,7 @@ export default function Timeline({ cards }: TimelineProps) {
         if (audioRef.current) audioRef.current.playbackRate = playbackRate;
     }, [playbackRate]);
 
-    const updateProgress = () => {
+    const updateProgress = useCallback(() => {
         if (audioRef.current && totalDuration > 0) {
             let elapsedInPreviousSegments = 0;
             for (let i = 0; i < currentCardIndex; i++) {
@@ -116,7 +116,7 @@ export default function Timeline({ cards }: TimelineProps) {
             setCurrentTime(newCurrentTime);
             animationFrameRef.current = requestAnimationFrame(updateProgress);
         }
-    };
+    }, [totalDuration, currentCardIndex, audioSegments]);
   
     useEffect(() => {
         const audio = audioRef.current;
@@ -160,7 +160,7 @@ export default function Timeline({ cards }: TimelineProps) {
             audioRef.current?.pause();
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         }
-    }, [isPlaying, currentCardIndex, audioSegments]);
+    }, [isPlaying, currentCardIndex, audioSegments, updateProgress]);
 
     const togglePlayPause = () => {
         if (audioSegments.length === 0) return;

@@ -3,17 +3,17 @@ import Link from 'next/link';
 import { ArrowLeft, Zap, Users, Code } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'من نحن | Studo',
-  description: 'تعرف على فريق ورؤية Studo، المشروع الرائد لتحويل النص إلى كلام عربي. تم تطويره بواسطة شركة غيمة لتمكين صناع المحتوى بأصوات عربية دقيقة.',
-  keywords: ['عن Studo', 'فريق Studo', 'شركة غيمة', 'قيس', 'يوسف عيسى', 'طارق أحمد', 'عبد الصبور السبيعي', 'رؤية Studo', 'تقنيات Studo'],
+  title: 'من نحن | Studio',
+  description: 'تعرف على فريق ورؤية Studio، المشروع الرائد لتحويل النص إلى كلام عربي. تم تطويره بواسطة شركة غيمة لتمكين صناع المحتوى بأصوات عربية دقيقة.',
+  keywords: ['عن Studio', 'فريق Studio', 'شركة غيمة', 'قيس', 'يوسف عيسى', 'طارق أحمد', 'عبد الصبور السبيعي', 'رؤية Studio', 'تقنيات Studio'],
   openGraph: {
-    title: 'من نحن | Studo',
-    description: 'تعرف على الفريق، الرؤية، والتقنيات خلف Studo، منصة الذكاء الاصطناعي الصوتية الرائدة في العالم العربي.',
+    title: 'من نحن | Studio',
+    description: 'تعرف على الفريق، الرؤية، والتقنيات خلف Studio، منصة الذكاء الاصطناعي الصوتية الرائدة في العالم العربي.',
     url: 'https://www.voicestudio.space/about',
   },
   twitter: {
-    title: 'من نحن | Studo',
-    description: 'تعرف على الفريق، الرؤية، والتقنيات خلف Studo، منصة الذكاء الاصطناعي الصوتية الرائدة في العالم العربي.',
+    title: 'من نحن | Studio',
+    description: 'تعرف على الفريق، الرؤية، والتقنيات خلف Studio، منصة الذكاء الاصطناعي الصوتية الرائدة في العالم العربي.',
   },
 };
 
@@ -33,7 +33,7 @@ export default function AboutPage() {
         </Link>
         
         <h1 className="text-4xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-3">
-            حول تطبيق Studo
+            حول تطبيق Studio
         </h1>
         
         {/* === القسم الأول: الرؤية والقيادة (تم التعديل) === */}

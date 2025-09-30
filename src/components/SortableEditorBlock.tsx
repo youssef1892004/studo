@@ -4,7 +4,7 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import dynamic from 'next/dynamic'; // <--- تم الإضافة
+import dynamic from 'next/dynamic'; 
 import { Voice, TTSCardData } from '@/lib/types';
 import { GripVertical, Mic, Trash2, Download } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
@@ -65,16 +65,9 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
     document.body.removeChild(link);
   };
   
-  // دالة التبديل بين التشكيل العربي وغير العربي
-  const toggleArabicFeature = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      props.onUpdate(props.cardData.id, { isArabic: !props.cardData.isArabic });
-  }
+  // [REMOVED LOGIC] تم حذف دالة toggleArabicFeature بالكامل لأن الزر أصبح في الشريط الجانبي
 
-  // (جديد) رسالة التنبيه لزر التشكيل
-  const arabicTooltip = props.cardData.isArabic 
-    ? "Pro Arabic: مفعّل. يضيف التشكيل الصحيح ويستغرق وقتاً أطول في التوليد."
-    : "Pro Arabic: غير مفعّل. لتفعيل التشكيل، قد تستغرق عملية التوليد وقتاً أطول.";
+  // [REMOVED LOGIC] تم حذف رسالة التنبيه لزر التشكيل
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
@@ -88,19 +81,7 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
             {characterInitial}
           </div>
           
-          {/* زر تفعيل التشكيل العربي (تعديل التسمية والـ Title) */}
-          <button 
-            onClick={toggleArabicFeature}
-            className={`flex items-center justify-center px-1.5 py-0.5 rounded transition-colors border ${
-              props.cardData.isArabic ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-            }`}
-            title={arabicTooltip} // <--- NEW TOOLTIP
-            aria-label="Toggle Pro Arabic Diacritics"
-          >
-            <span className="text-xs font-bold" style={{fontSize: '10px'}}>
-                Pro Arabic
-            </span>
-          </button>
+          {/* 🚨 [REMOVED] تم حذف زر تفعيل التشكيل العربي (Pro Arabic Toggle Button) */}
 
 
           {estimatedDuration > 0 && !props.cardData.audioUrl && (

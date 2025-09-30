@@ -28,33 +28,23 @@ async function getAccessToken() {
 export async function POST(request: NextRequest) {
   try {
     // (تعديل) استقبال الـ flag الجديد
-    const { text, voice, isArabic } = await request.json(); 
+    const { text, voice } = await request.json(); 
     if (!text || !voice) {
       return NextResponse.json({ error: 'Text and voice are required' }, { status: 400 });
     }
 
     const token = await getAccessToken();
     
-    // (تعديل) تحديد المزود والـ payload بناءً على isArabic
-    const provider = isArabic ? "ghaymah_pro" : "ghaymah";
+    const PRO_VOICES_IDS = ['0', '1', '2', '3'];
+    const isProVoice = PRO_VOICES_IDS.includes(voice);
 
-    // (تعديل جديد) إذا كان المزود هو ghaymah_pro (للتشكيل)، يجب أن نستخدم Voice ID صحيح.
-    let finalVoice = voice;
-    if (isArabic) {
-        // إذا كان تفعيل التشكيل، يجب أن تكون قيمة الصوت '0' أو '1' إلخ.
-        // نتحقق ما إذا كان Voice ID الحالي هو نصي مثل "ar-EG-SalmaNeural"
-        if (voice.includes('-') || isNaN(parseInt(voice, 10))) {
-            // إذا كان Voice ID قديماً، نستخدم '0' كقيمة افتراضية للـ ghaymah_pro
-            finalVoice = '0';
-        }
-    }
+    const provider = isProVoice ? "ghaymah_pro" : "ghaymah";
     
     const blockPayload = { 
         text, 
         provider, 
-        voice: finalVoice, // استخدام finalVoice
-        // إضافة الخصائص المطلوبة للتشكيل، مع wait_after_ms: 0 كقيمة ثابتة
-        ...(isArabic && { arabic: true, wait_after_ms: 0 }) 
+        voice: voice,
+        ...(isProVoice && { arabic: true, wait_after_ms: 0 }) 
     };
 
     const payload = { blocks: [blockPayload] };
