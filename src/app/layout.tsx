@@ -7,6 +7,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import dynamic from 'next/dynamic';
 import Script from 'next/script';
+// [NEW] استيراد Toaster
+import { Toaster } from 'react-hot-toast';
+
 
 const cairo = Cairo({ subsets: ["arabic"] });
 
@@ -69,7 +72,6 @@ export const metadata: Metadata = {
   },
 };
 
-
 const DynamicNavbar = dynamic(() => import('@/components/Navbar'), { 
     ssr: false,
 });
@@ -89,6 +91,13 @@ export default function RootLayout({
           <AuthProvider>
               <DynamicNavbar />
               {children}
+              {/* [MODIFIED] تغيير الموضع إلى "top-left" وإضافة إزاحة عمودية (top: 60) */}
+              <Toaster 
+                position="top-left" 
+                containerStyle={{ 
+                  top: 60, // إزاحة 60 بكسل من الأعلى
+                }} 
+              />
           </AuthProvider>
         </ThemeProvider>
         <Script 
@@ -110,3 +119,4 @@ export default function RootLayout({
     </html>
   );
 }
+

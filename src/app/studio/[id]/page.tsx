@@ -12,6 +12,8 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { getProjectById, updateProject } from '@/lib/graphql';
 import getMP3Duration from 'get-mp3-duration';
 import { uploadAudioSegment } from '@/lib/tts';
+// [NEW] استيراد toast
+import toast from 'react-hot-toast';
 // استيراد المكونات
 import ProjectHeader from '@/components/studio/ProjectHeader';
 import EditorCanvas from '@/components/studio/EditorCanvas';
@@ -29,7 +31,7 @@ export default function StudioProjectPage() {
     const [cards, setCards] = useState<TTSCardData[]>([]);
     const [activeCardId, setActiveCardId] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+    // [REMOVED] تم حذف حالة loadingMessage
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pageMessage, setPageMessage] = useState<string | null>(null);
@@ -69,11 +71,11 @@ export default function StudioProjectPage() {
             console.log("Auto-saving project data...");
             updateProject(projectId, cards, projectTitle)
                 .then(() => {
-                    console.log("Project auto-saved successfully.");
+                    toast.success("تم حفظ المشروع تلقائيًا!");
                 })
                 .catch(err => {
                     console.error("Auto-save failed:", err);
-                    setError("فشل حفظ المشروع تلقائيًا.");
+                    toast.error("فشل حفظ المشروع تلقائيًا.");
                 });
         }, 2000); // الحفظ بعد ثانيتين من آخر تعديل
 
@@ -123,6 +125,8 @@ export default function StudioProjectPage() {
               setError("Project not found.");
             }
           } catch (e: any) {
+            // [MODIFIED] استخدام toast
+            toast.error(`فشل تحميل بيانات المشروع: ${e.message}`);
             setError(`Failed to load project data: ${e.message}`);
           } finally {
             setIsLoading(false);
@@ -190,6 +194,7 @@ export default function StudioProjectPage() {
         
         // إذا كان الصوت المطبق هو Pro، نعتبر isArabic مفعلة (للتشكيل)
         updateCard(activeCardId, { voice: voiceName, isArabic: isProVoice });
+        toast.success(`تم تطبيق الصوت بنجاح.`);
       }
     };
     
@@ -200,14 +205,16 @@ export default function StudioProjectPage() {
         );
         
         if (cardsToGenerate.length === 0) {
-            setError('Add text to generate, or wait for the current process to finish.');
+            toast.error('أضف نصاً للتوليد، أو انتظر انتهاء العملية الحالية.');
             return;
         }
         
         setIsGenerating(true);
-        setLoadingMessage('جاري توليد المقاطع الصوتية... قد يستغرق هذا بعض الوقت.');
         setError(null);
         
+        // [MODIFIED] استخدام toast.loading وإعطائه ID
+        const loadingToastId = toast.loading(`جاري بدء توليد ${cardsToGenerate.length} مقطع صوتي...`);
+
         const generationPromises = cardsToGenerate.map(card => 
             new Promise<void>(async (resolve, reject) => {
                 updateCard(card.id, { 
@@ -288,6 +295,8 @@ export default function StudioProjectPage() {
                         } catch (pollError: any) {
                             clearInterval(pollingIntervals.current[card.id]);
                             delete pollingIntervals.current[card.id];
+                            // [MODIFIED] استخدام toast.error لإشعار فشل مقطع معين
+                            toast.error(`فشل توليد مقطع: ${card.id.substring(0, 4)}. ${pollError.message}`);
                             reject(pollError);
                         }
                     }, 3000);
@@ -300,11 +309,14 @@ export default function StudioProjectPage() {
         
         try {
             await Promise.all(generationPromises);
+            // [MODIFIED] تحديث الـ Toast الرئيسي بالنجاح
+            toast.success('🎉 تم توليد جميع المقاطع المحددة بنجاح!', { id: loadingToastId });
         } catch(err: any) {
+            // [MODIFIED] تحديث الـ Toast الرئيسي بالفشل
+            toast.error(err.message || "حدث خطأ أثناء التوليد.", { id: loadingToastId });
             setError(err.message || "An error occurred during generation.");
         } finally {
             setIsGenerating(false);
-            setLoadingMessage(null);
         }
     };
   
@@ -314,19 +326,21 @@ export default function StudioProjectPage() {
             .filter((id): id is string => !!id);
 
         if (jobIds.length === 0) {
-            setError("لم يتم توليد أي مقطع صوتي بعد للتحميل.");
+            toast.error("لم يتم توليد أي مقطع صوتي بعد للتحميل.");
             return;
         }
 
         const cardsWithAudio = cards.filter(c => c.audioUrl);
         if (jobIds.length !== cardsWithAudio.length) {
-            setError("بعض المقاطع الصوتية لم يتم توليدها. يرجى إعادة المحاولة.");
+            toast.error("بعض المقاطع الصوتية لم يتم توليدها. يرجى إعادة المحاولة.");
             return;
         }
 
         setIsGenerating(true);
-        setLoadingMessage('جاري دمج المقاطع الصوتية وتحميل الملف... قد يستغرق هذا قليلاً.');
         setError(null);
+        
+        // [MODIFIED] استخدام toast.loading لعملية الدمج
+        const downloadToastId = toast.loading('جاري دمج المقاطع الصوتية وتحميل الملف... قد يستغرق هذا قليلاً.');
 
         try {
             const response = await fetch('/api/tts/merge-all', {
@@ -356,12 +370,16 @@ export default function StudioProjectPage() {
             a.click();
             a.remove();
             window.URL.revokeObjectURL(url);
+            
+            // [MODIFIED] تحديث الـ Toast بالنجاح
+            toast.success('✅ تم دمج وتنزيل الملف الصوتي بنجاح!', { id: downloadToastId });
 
         } catch (err: any) {
+            // [MODIFIED] تحديث الـ Toast بالفشل
+            toast.error(err.message || "حدث خطأ في عملية الدمج والتنزيل.", { id: downloadToastId });
             setError(err.message);
         } finally {
             setIsGenerating(false);
-            setLoadingMessage(null);
         }
     };
   
@@ -401,8 +419,14 @@ export default function StudioProjectPage() {
       });
   
     if (isLoading || authContext?.isLoading || !authContext?.user) {
-      // [FIX] استخدام مؤشر تحميل بسيط عند تحميل البيانات الأولية
-      return <div className="flex items-center justify-center h-screen text-gray-800 dark:text-white"><Orbit className="animate-spin" size={48} /></div>;
+      // [MODIFIED] استخدام شاشة تحميل مخصصة
+      return (
+        <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white transition-colors duration-300">
+            <LoaderCircle className="w-16 h-16 text-blue-600 dark:text-blue-400 animate-spin mb-6" />
+            <h2 className="text-xl font-semibold">جاري تحميل استوديو الصوت...</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">يُرجى الانتظار بينما نقوم بتحضير مشروعك والأصوات.</p>
+        </div>
+      );
     }
   
     const hasContent = cards.length > 0;
@@ -410,15 +434,7 @@ export default function StudioProjectPage() {
     return (
         <div className="flex flex-col h-screen bg-white dark:bg-gray-900 font-sans relative transition-colors duration-200"> 
             
-            {/* شاشة التحميل عند الضغط على Generate أو Download */}
-            {isGenerating && loadingMessage && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-transparent pointer-events-none">
-                    <div className="flex flex-col items-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-2xl pointer-events-auto">
-                        <LoaderCircle className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
-                        <p className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-200">{loadingMessage}</p>
-                    </div>
-                </div>
-            )}
+            {/* [REMOVED] تم حذف شاشة التحميل الثابتة (loadingMessage) */}
             
             {/* شريط العنوان (ProjectHeader Container) */}
             <div className={`flex-shrink-0 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-all duration-200`}>
@@ -442,7 +458,8 @@ export default function StudioProjectPage() {
                         updateCard={updateCard}
                         removeCard={removeCard}
                         addCard={addCard}
-                        error={error}
+                        // [MODIFIED] تم إبقاء error كـ null لإخفاء رسالة الخطأ النصية القديمة
+                        error={null} 
                         pageMessage={pageMessage}
                     />
                 </main>

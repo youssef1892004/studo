@@ -66,8 +66,8 @@ export default function RightSidebar({
 
   const proVoices: Voice[] = [
     { name: '0', characterName: 'كريم', gender: 'Male', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
-    { name: '1', characterName: 'طارق', gender: 'Female', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
-    { name: '2', characterName: 'ليلى', gender: 'Male', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
+    { name: '1', characterName: 'طارق', gender: 'Male', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
+    { name: '2', characterName: 'ليلى', gender: 'Female', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
     { name: '3', characterName: 'نور', gender: 'Female', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
   ];
 

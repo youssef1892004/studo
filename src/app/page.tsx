@@ -234,6 +234,12 @@ export default function LandingPage() {
             <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
               ai voice studio
             </div>
+            {/* [NEW] Legal links added */}
+            <div className="flex justify-center space-x-4 rtl:space-x-reverse mb-4 text-gray-600 text-sm">
+                <a href="/legal" className="hover:text-blue-600 transition-colors">Legal Policies</a>
+                <a href="/about" className="hover:text-blue-600 transition-colors">About Us</a>
+                <a href="/docs" className="hover:text-blue-600 transition-colors">Docs</a>
+            </div>
             <div className="text-gray-600 text-sm">
               © 2024 ai voice studio. All rights reserved.
             </div>

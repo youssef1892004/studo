@@ -79,8 +79,13 @@ export default function ProjectsPage() {
 
 
     if (isLoading) {
-        // تنسيقات التحميل
-        return <div className="flex items-center justify-center h-screen text-gray-800 dark:text-white"><Orbit className="animate-spin" size={48} /></div>;
+        // [MODIFIED] استخدام شاشة تحميل مخصصة
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white transition-colors duration-300">
+                <LoaderCircle className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mb-4" />
+                <p className="text-lg font-medium">جاري تحميل مشاريعك...</p>
+            </div>
+        );
     }
 
     return (
