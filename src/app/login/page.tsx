@@ -1,17 +1,15 @@
-// File path: src/app/login/page.tsx
+// src/app/login/page.tsx
 'use client';
 
 import { useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AuthContext } from '../../contexts/AuthContext';
-// [NEW] استيراد toast
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  // [REMOVED] تم حذف حالة error
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const authContext = useContext(AuthContext);
@@ -25,13 +23,12 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // [REMOVED] تم حذف setError
 
     try {
       await login(email, password);
-      // [NEW] عرض رسالة النجاح
+      // [MODIFIED] عرض رسالة النجاح
       toast.success('تم تسجيل الدخول بنجاح!');
-      router.push('/'); // Redirect to home page on successful login
+      router.push('/'); 
     } catch (err: any) {
       // [MODIFIED] استخدام toast.error لعرض الخطأ
       toast.error(err.message || 'حدث خطأ غير متوقع أثناء تسجيل الدخول.');
@@ -44,7 +41,6 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
         <h1 className="text-2xl font-bold text-center text-gray-800">تسجيل الدخول</h1>
-        {/* [REMOVED] تم حذف عرض رسالة الخطأ المحلية */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">

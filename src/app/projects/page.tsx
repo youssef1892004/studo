@@ -3,16 +3,46 @@
 
 import { AuthContext } from "@/contexts/AuthContext";
 import { getProjectsByUserId, insertProject, deleteProject } from "@/lib/graphql";
-import { FilePlus, LoaderCircle, Orbit, Trash2 } from "lucide-react"; 
+import { FilePlus, LoaderCircle, Trash2, Zap, Users, Image, Video, Mic } from "lucide-react"; 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useContext, useEffect, useState, MouseEvent } from "react";
+import toast from "react-hot-toast"; // تم إضافة toast للإشعارات
 
 interface Project {
     id: string;
-    comments: string; 
+    comments: string;
     last_updated: string;
 }
+
+const upcomingFeatures = [
+    { 
+        title: "المؤثرات الصوتية", 
+        description: "إضافة تأثيرات (صدى، فلترة، تردد) على المقاطع الصوتية.", 
+        icon: Zap 
+    },
+    { 
+        title: "أصوات جديدة وموسعة", 
+        description: "إطلاق مجموعة ضخمة من الأصوات الاحترافية واللهجات الإقليمية.", 
+        icon: Users 
+    },
+    { 
+        title: "توليد الصور بالذكاء الاصطناعي", 
+        description: "تحويل النص إلى صورة (Text-to-Image) لإنشاء خلفيات بصرية.", 
+        icon: Image 
+    },
+    { 
+        title: "توليد الفيديوهات القصيرة", 
+        description: "دمج الصوت مع الصور الثابتة أو مقاطع الفيديو البسيطة.", 
+        icon: Video 
+    },
+    { 
+        title: "التسجيل وتحويل الصوت (AI)", 
+        description: "سجل صوتك وحوّله إلى أي صوت آخر مدعوم بتقنيات الاستنساخ الآمن.", 
+        icon: Mic 
+    },
+];
+
 
 export default function ProjectsPage() {
     const [projects, setProjects] = useState<Project[]>([]);
@@ -21,7 +51,6 @@ export default function ProjectsPage() {
     const [newProjectName, setNewProjectName] = useState("");
     const [showCreateModal, setShowCreateModal] = useState(false);
     
-    // --- (جديد) حالات لإدارة نافذة تأكيد الحذف ---
     const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -32,7 +61,10 @@ export default function ProjectsPage() {
         if (authContext?.user?.id) {
             getProjectsByUserId(authContext.user.id)
                 .then(setProjects)
-                .catch(err => console.error("Failed to fetch projects", err))
+                .catch(err => {
+                    console.error("Failed to fetch projects", err);
+                    toast.error("فشل تحميل المشاريع. حاول إعادة تحميل الصفحة.");
+                })
                 .finally(() => setIsLoading(false));
         }
     }, [authContext?.user?.id]);
@@ -43,9 +75,11 @@ export default function ProjectsPage() {
         setIsCreating(true);
         try {
             const newProject = await insertProject(authContext.user.id, newProjectName);
+            toast.success(`تم إنشاء مشروع "${newProjectName}" بنجاح!`);
             router.push(`/studio/${newProject.id}`);
         } catch (error) {
             console.error("Failed to create project", error);
+            toast.error("فشل إنشاء المشروع.");
         } finally {
             setIsCreating(false);
             setShowCreateModal(false);
@@ -53,24 +87,23 @@ export default function ProjectsPage() {
         }
     };
 
-    // --- (جديد) دالة لفتح نافذة التأكيد ---
     const handleDeleteClick = (project: Project, e: MouseEvent) => {
-        e.preventDefault(); // منع الانتقال إلى صفحة المشروع
+        e.preventDefault(); 
         e.stopPropagation();
         setProjectToDelete(project);
     };
 
-    // --- (جديد) دالة لتأكيد وتنفيذ الحذف ---
     const confirmDelete = async () => {
         if (!projectToDelete) return;
         setIsDeleting(true);
+        const projectName = projectToDelete.comments;
         try {
             await deleteProject(projectToDelete.id);
-            // تحديث قائمة المشاريع في الواجهة فورًا
             setProjects(currentProjects => currentProjects.filter(p => p.id !== projectToDelete.id));
+            toast.success(`تم حذف المشروع "${projectName}" بنجاح.`);
         } catch (error) {
             console.error("Failed to delete project", error);
-            // يمكنك إضافة رسالة خطأ للمستخدم هنا
+            toast.error("فشل حذف المشروع.");
         } finally {
             setIsDeleting(false);
             setProjectToDelete(null);
@@ -79,7 +112,7 @@ export default function ProjectsPage() {
 
 
     if (isLoading) {
-        // [MODIFIED] استخدام شاشة تحميل مخصصة
+        // [MODIFIED] شاشة تحميل مخصصة
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white transition-colors duration-300">
                 <LoaderCircle className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mb-4" />
@@ -92,9 +125,7 @@ export default function ProjectsPage() {
         <>
             <main className="container mx-auto p-8">
                 <div className="flex justify-between items-center mb-8">
-                    {/* العنوان الرئيسي */}
                     <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Projects</h1>
-                    {/* زر إنشاء مشروع جديد */}
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-blue-600 text-white font-semibold rounded-lg hover:bg-gray-800 dark:hover:bg-blue-700 transition-colors"
@@ -104,24 +135,19 @@ export default function ProjectsPage() {
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                     {projects.map(project => (
                         <Link 
                             href={`/studio/${project.id}`} 
                             key={project.id} 
-                            // تنسيقات البطاقة
                             className="group relative block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-shadow border border-gray-100 dark:border-gray-700"
                         >
-                            {/* عنوان المشروع */}
                             <h2 className="text-xl font-bold truncate mb-2 text-gray-900 dark:text-white">{project.comments || "Untitled Project"}</h2>
-                            {/* تاريخ آخر تحديث */}
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Last updated: {new Date(project.last_updated).toLocaleDateString()}
                             </p>
-                            {/* زر الحذف */}
                             <button 
                                 onClick={(e) => handleDeleteClick(project, e)}
-                                // تم تغيير top-3 إلى bottom-3
                                 className="absolute bottom-3 right-3 p-2 text-gray-400 dark:text-gray-500 rounded-full hover:bg-red-50 dark:hover:bg-gray-700 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                                 title="Delete project"
                             >
@@ -131,11 +157,39 @@ export default function ProjectsPage() {
                     ))}
                 </div>
 
-                 {projects.length === 0 && !isLoading && (
-                    <div className="text-center py-20">
-                        <p className="text-gray-500 dark:text-gray-400">You don&apos;t have any projects yet.</p>
+                {projects.length === 0 && (
+                    <div className="text-center py-10">
+                        <p className="text-gray-500 dark:text-gray-400">ابدأ بإنشاء مشروعك الأول!</p>
                     </div>
                 )}
+                
+                <div className="mt-12 border-t pt-8 border-gray-200 dark:border-gray-700">
+                    <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">قريباً: المزيد من القوة الإبداعية</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {upcomingFeatures.map((feature, index) => (
+                            <div 
+                                key={index} 
+                                className="relative p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 border-dashed border-blue-300 dark:border-blue-600/50 opacity-70 hover:opacity-100 transition-opacity"
+                            >
+                                <span className="absolute top-0 right-0 bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-xl">
+                                    قريباً
+                                </span>
+                                <div className="flex items-start gap-4">
+                                    <feature.icon className="w-10 h-10 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                    <div>
+                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                                            {feature.title}
+                                        </h3>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            {feature.description}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
             </main>
 
             {/* --- نافذة إنشاء مشروع (Modal) --- */}
@@ -149,7 +203,6 @@ export default function ProjectsPage() {
                                 value={newProjectName}
                                 onChange={(e) => setNewProjectName(e.target.value)}
                                 placeholder="Enter project name..."
-                                // تنسيقات الإدخال
                                 className="w-full p-3 border rounded-md mb-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 autoFocus
                             />

@@ -25,12 +25,20 @@ export async function generateSpeech(text: string, voice: string): Promise<Blob>
   return response.blob();
 }
 export async function uploadAudioSegment(audioBlob: Blob, cardId: string): Promise<string> {
-  // === هذا الجزء يحاكي عملية الرفع على Cloudinary ===
-  console.log(`Simulating Cloudinary upload for card: ${cardId}`);
-  await new Promise(resolve => setTimeout(resolve, 500)); // محاكاة زمن الاستجابة
-  
-  // نُرجع رابطاً ثابتاً يعتمد على مُعرّف البطاقة لجعله فريداً في قاعدة البيانات
-  const mockCloudinaryUrl = `/media/persistent/${cardId}.mp3`;
-  
-  return mockCloudinaryUrl;
+  console.log(`Converting audio blob to data URL for card: ${cardId}`);
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Failed to read blob as data URL.'));
+      }
+    };
+    reader.onerror = () => {
+      reject(new Error('Error reading blob.'));
+    };
+    reader.readAsDataURL(audioBlob);
+  });
+  return dataUrl;
 }

@@ -18,10 +18,12 @@ export interface TTSCardData {
   audioUrl?: string;
   duration?: number;
   isGenerating?: boolean;
-  job_id?: string; // <--- قم بإضافة هذا السطر
-  createdAt?: string | Date; // ✅ أضف دي
-  isArabic?: boolean; // (جديد) لتفعيل خاصية التشكيل
+  job_id?: string;
+  createdAt?: string | Date;
+  isArabic?: boolean;
   persistentAudioUrl?: string;
+  trimStart?: number;
+  trimEnd?: number;
 }
 
 export interface TTSRequestItem {
@@ -48,14 +50,4 @@ export interface HasuraUser {
   email: string;
   passwordHash: string;
   roles: { role: string }[];
-}
-export interface TTSCardData {
-  id: string;
-  voice: string;
-  data: OutputData;
-  text?: string;
-  // --- === خصائص جديدة للشريط الزمني === ---
-  audioUrl?: string;      // رابط المقطع الصوتي الخاص بهذه الفقرة
-  duration?: number;      // مدة المقطع بالثواني
-  isGenerating?: boolean; // لتتبع حالة توليد الصوت لهذه الفقرة
 }

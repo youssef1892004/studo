@@ -91,7 +91,7 @@ export default function RootLayout({
           <AuthProvider>
               <DynamicNavbar />
               {children}
-              {/* [MODIFIED] تغيير الموضع إلى "top-left" وإضافة إزاحة عمودية (top: 60) */}
+              {/* [MODIFIED] تم تغيير الموضع إلى "top-right" مع إزاحة 60px */}
               <Toaster 
                 position="top-left" 
                 containerStyle={{ 
@@ -100,11 +100,13 @@ export default function RootLayout({
               />
           </AuthProvider>
         </ThemeProvider>
+        {/* Umami Analytics */}
         <Script 
           src="https://cloud.umami.is/script.js" 
           data-website-id="b3c8b995-c0f2-4e86-b0ce-a937cda2e208" 
           strategy="afterInteractive"
         />
+        {/* Schema Markup for SEO */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -119,4 +121,3 @@ export default function RootLayout({
     </html>
   );
 }
-

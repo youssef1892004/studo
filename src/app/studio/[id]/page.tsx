@@ -12,34 +12,26 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { getProjectById, updateProject } from '@/lib/graphql';
 import getMP3Duration from 'get-mp3-duration';
 import { uploadAudioSegment } from '@/lib/tts';
-// [NEW] استيراد toast
 import toast from 'react-hot-toast';
-// استيراد المكونات
 import ProjectHeader from '@/components/studio/ProjectHeader';
 import EditorCanvas from '@/components/studio/EditorCanvas';
 import RightSidebar from '@/components/studio/RightSidebar';
 import Timeline from '@/components/Timeline';
-// import LoadingScreen from '@/components/LoadingScreen';
 
-// [NEW/MODIFIED] قائمة المعرّفات للأصوات الاحترافية (Pro)
 const PRO_VOICES_IDS = ['0', '1', '2', '3'];
 
 export default function StudioProjectPage() {
     const [projectTitle, setProjectTitle] = useState("Untitled Project");
-    // [MODIFIED] تم تعديل نوع Voice ليشمل isPro
     const [voices, setVoices] = useState<(Voice & { isPro?: boolean })[]>([]);
     const [cards, setCards] = useState<TTSCardData[]>([]);
     const [activeCardId, setActiveCardId] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    // [REMOVED] تم حذف حالة loadingMessage
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pageMessage, setPageMessage] = useState<string | null>(null);
     
-    // إضافة متغير لتتبع حالة التحميل الأولي
     const isInitialLoad = useRef(true);
     
-    // [NEW STATE] لتحديد وضع الأصوات (Free/Pro)
     const [voiceMode, setVoiceMode] = useState<'Free' | 'Pro'>('Free'); 
 
     const [languageFilter, setLanguageFilter] = useState('all');
@@ -61,12 +53,10 @@ export default function StudioProjectPage() {
 
     // إضافة ميزة الحفظ التلقائي
     useEffect(() => {
-        // لا تقم بالحفظ عند التحميل الأولي للصفحة
         if (isInitialLoad.current) {
             return;
         }
 
-        // إعداد مؤقت لتأجيل الحفظ
         const handler = setTimeout(() => {
             console.log("Auto-saving project data...");
             updateProject(projectId, cards, projectTitle)
@@ -77,9 +67,8 @@ export default function StudioProjectPage() {
                     console.error("Auto-save failed:", err);
                     toast.error("فشل حفظ المشروع تلقائيًا.");
                 });
-        }, 2000); // الحفظ بعد ثانيتين من آخر تعديل
+        }, 2000); 
 
-        // إلغاء المؤقت السابق عند حدوث تغيير جديد
         return () => {
             clearTimeout(handler);
         };
@@ -98,57 +87,62 @@ export default function StudioProjectPage() {
       async function loadProjectAndVoices() {
         if (authContext?.user?.id && projectId) {
           setIsLoading(true);
+          
+          const userId = authContext.user.id; 
+          
           try {
             const [fetchedVoices, projectData] = await Promise.all([
               fetchVoices(), 
-              getProjectById(projectId)
+              getProjectById(projectId) 
             ]);
             
-            // [FIX] تحديد الأصوات الاحترافية بناءً على الـ IDs الرقمية
+            // التحقق من ملكية المشروع (MODIFIED LOGIC)
+            if (!projectData || projectData.userid !== userId) {
+                toast.error("خطأ: المشروع غير موجود أو ليس لديك صلاحية الوصول إليه.");
+                setError("Project not found or unauthorized access.");
+                setIsLoading(false);
+                router.push('/projects'); 
+                return;
+            }
+            
             const voicesWithMode = fetchedVoices.map(v => ({
                 ...v,
-                // تحديد ما إذا كان الصوت هو برو باستخدام القائمة الجديدة
                 isPro: PRO_VOICES_IDS.includes(v.name)
             }));
 
             setVoices(voicesWithMode);
-            if (projectData) {
-              setProjectTitle(projectData.comments || "Untitled Project");
-              const initialCards = (projectData.blocks || []).map((card: any) => ({
+
+            setProjectTitle(projectData.comments || "Untitled Project");
+            const initialCards = (projectData.blocks || []).map((card: any) => ({
                 ...card,
+                audioUrl: card.persistentAudioUrl, // Use the persistent URL for the waveform
                 isGenerating: false,
                 isArabic: card.provider === 'ghaymah_pro' || card.arabic === true || PRO_VOICES_IDS.includes(card.voice)
-              }));
-              setCards(initialCards);
-              if (initialCards.length > 0) setActiveCardId(initialCards[0].id);
-            } else {
-              setError("Project not found.");
-            }
+            }));
+            setCards(initialCards);
+            if (initialCards.length > 0) setActiveCardId(initialCards[0].id);
+
           } catch (e: any) {
-            // [MODIFIED] استخدام toast
             toast.error(`فشل تحميل بيانات المشروع: ${e.message}`);
             setError(`Failed to load project data: ${e.message}`);
           } finally {
             setIsLoading(false);
-            // تم انتهاء التحميل الأولي
             setTimeout(() => { isInitialLoad.current = false; }, 500);
           }
         }
       }
       loadProjectAndVoices();
-    }, [authContext?.user?.id, projectId]);
+    }, [authContext?.user?.id, projectId, router]); 
 
-    // [MODIFIED LOGIC] تعديل دالة إضافة البطاقة بناءً على الـ voiceMode
     const addCard = () => {
         if (voices.length > 0) {
             const newCardId = uuidv4();
             
             const isProMode = voiceMode === 'Pro';
             
-            // البحث عن أول صوت يطابق الوضع المختار
             const defaultVoice = isProMode 
-                ? (voices.find(v => v.isPro)?.name || "0") // Default to '0' if Pro is selected
-                : (voices.find(v => !v.isPro)?.name || "ar-EG-ShakirNeural"); // Default to 'ar-EG-ShakirNeural' if Free is selected
+                ? (voices.find(v => v.isPro)?.name || "0") 
+                : (voices.find(v => !v.isPro)?.name || "ar-EG-ShakirNeural"); 
 
             const newCard: TTSCardData = {
                 id: newCardId, 
@@ -162,7 +156,6 @@ export default function StudioProjectPage() {
                   }] 
                 },
                 isGenerating: false,
-                // تعيين isArabic (التشكيل) بناءً على وضع الصوت المختار (Pro mode)
                 isArabic: isProMode, 
             };
             setCards([...cards, newCard]);
@@ -186,13 +179,11 @@ export default function StudioProjectPage() {
         }
     };
     
-    // [MODIFIED LOGIC] تعديل دالة تطبيق الصوت لتحديد isArabic بناءً على ما إذا كان الصوت المطبق هو Pro
     const handleApplyVoice = (voiceName: string) => {
       if (activeCardId) {
         const selectedVoice = voices.find(v => v.name === voiceName);
         const isProVoice = selectedVoice?.isPro ?? false;
         
-        // إذا كان الصوت المطبق هو Pro، نعتبر isArabic مفعلة (للتشكيل)
         updateCard(activeCardId, { voice: voiceName, isArabic: isProVoice });
         toast.success(`تم تطبيق الصوت بنجاح.`);
       }
@@ -212,7 +203,7 @@ export default function StudioProjectPage() {
         setIsGenerating(true);
         setError(null);
         
-        // [MODIFIED] استخدام toast.loading وإعطائه ID
+        // [MODIFIED] استخدام toast.loading
         const loadingToastId = toast.loading(`جاري بدء توليد ${cardsToGenerate.length} مقطع صوتي...`);
 
         const generationPromises = cardsToGenerate.map(card => 
@@ -224,6 +215,7 @@ export default function StudioProjectPage() {
                 });
                 
                 try {
+                    // ... (API call logic remains the same) ...
                     const text = card.data.blocks
                       .map(b => b.data.text)
                       .join(' ')
@@ -265,17 +257,13 @@ export default function StudioProjectPage() {
                                     const audioUrl = URL.createObjectURL(audioBlob);
                                     const persistentUrl = await uploadAudioSegment(audioBlob, card.id); 
                                     let durationInSeconds = 0;
-                                    // === كتلة try...catch لحساب المدة الآمن ===
                                     try {
                                         const buffer = await audioBlob.arrayBuffer();
-                                        // استخدام Buffer.from يتطلب بيئة Node.js (وهي متاحة في Next.js)
                                         const duration = getMP3Duration(Buffer.from(buffer)); 
                                         durationInSeconds = duration / 1000;
                                     } catch (durationError) {
                                         console.error(`Could not calculate MP3 duration for job ${job_id}. This is non-fatal:`, durationError);
-                                        // نترك المدة 0 أو قيمة افتراضية.
                                     }
-                                    // =========================================
                                     
                                     updateCard(card.id, { 
                                       isGenerating: false, 
@@ -350,6 +338,7 @@ export default function StudioProjectPage() {
             });
 
             if (!response.ok) {
+                // ... (Error handling remains the same) ...
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     const errorData = await response.json();
@@ -397,14 +386,12 @@ export default function StudioProjectPage() {
       }])
     ).values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   
-    // [MODIFIED LOGIC] تصفية الأصوات حسب الفلاتر ووضع الصوت المختار
     const filteredVoices = voices
       .filter(voice => {
           const langMatch = languageFilter === 'all' || voice.languageCode === languageFilter;
           const countryMatch = countryFilter === 'all' || voice.countryCode === countryFilter;
           const genderMatch = genderFilter === 'all' || voice.gender === genderFilter;
           
-          // [FIXED] استخدام تعبير شرطي بسيط ومباشر للتصفية الصحيحة
           const modeMatch = voiceMode === 'Pro' ? voice.isPro : !voice.isPro;
 
           return langMatch && countryMatch && genderMatch && modeMatch;
@@ -419,7 +406,7 @@ export default function StudioProjectPage() {
       });
   
     if (isLoading || authContext?.isLoading || !authContext?.user) {
-      // [MODIFIED] استخدام شاشة تحميل مخصصة
+      // [MODIFIED] شاشة تحميل مخصصة
       return (
         <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white transition-colors duration-300">
             <LoaderCircle className="w-16 h-16 text-blue-600 dark:text-blue-400 animate-spin mb-6" />
@@ -433,8 +420,6 @@ export default function StudioProjectPage() {
 
     return (
         <div className="flex flex-col h-screen bg-white dark:bg-gray-900 font-sans relative transition-colors duration-200"> 
-            
-            {/* [REMOVED] تم حذف شاشة التحميل الثابتة (loadingMessage) */}
             
             {/* شريط العنوان (ProjectHeader Container) */}
             <div className={`flex-shrink-0 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-all duration-200`}>
@@ -458,7 +443,6 @@ export default function StudioProjectPage() {
                         updateCard={updateCard}
                         removeCard={removeCard}
                         addCard={addCard}
-                        // [MODIFIED] تم إبقاء error كـ null لإخفاء رسالة الخطأ النصية القديمة
                         error={null} 
                         pageMessage={pageMessage}
                     />
@@ -479,7 +463,6 @@ export default function StudioProjectPage() {
                         setGenderFilter={setGenderFilter}
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
-                        // [NEW PROPS]
                         voiceMode={voiceMode}
                         setVoiceMode={setVoiceMode}
                     />
