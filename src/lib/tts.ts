@@ -1,3 +1,4 @@
+// src/lib/tts.ts (Modified uploadAudioSegment function)
 import { Voice } from './types';
 
 export async function fetchVoices(): Promise<Voice[]> {
@@ -24,8 +25,10 @@ export async function generateSpeech(text: string, voice: string): Promise<Blob>
 
   return response.blob();
 }
-export async function uploadAudioSegment(audioBlob: Blob, cardId: string): Promise<string> {
-  console.log(`Converting audio blob to data URL for card: ${cardId}`);
+// [MODIFIED] وظيفة تحديث لتحميل الصوت إلى S3 عبر مسار API جديد
+export async function uploadAudioSegment(audioBlob: Blob, projectId: string): Promise<string> {
+  console.log(`Converting audio blob to data URL for project: ${projectId}`);
+  
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -40,5 +43,19 @@ export async function uploadAudioSegment(audioBlob: Blob, cardId: string): Promi
     };
     reader.readAsDataURL(audioBlob);
   });
-  return dataUrl;
+  
+  // استدعاء مسار API الجديد للرفع إلى S3 وحفظ الرابط في Hasura
+  const response = await fetch('/api/project/upload-audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl, projectId }),
+  });
+
+  if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to upload audio segment to S3.');
+  }
+
+  const { persistentAudioUrl } = await response.json();
+  return persistentAudioUrl; // إرجاع رابط S3 الدائم
 }

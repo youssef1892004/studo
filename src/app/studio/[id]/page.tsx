@@ -17,6 +17,7 @@ import ProjectHeader from '@/components/studio/ProjectHeader';
 import EditorCanvas from '@/components/studio/EditorCanvas';
 import RightSidebar from '@/components/studio/RightSidebar';
 import Timeline from '@/components/Timeline';
+import GeneratedLinks from '@/components/GeneratedLinks';
 
 const PRO_VOICES_IDS = ['0', '1', '2', '3'];
 
@@ -446,6 +447,9 @@ export default function StudioProjectPage() {
                         error={null} 
                         pageMessage={pageMessage}
                     />
+                    <div className="p-4">
+                        <GeneratedLinks projectId={projectId} />
+                    </div>
                 </main>
                 
                 <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 transition-colors duration-200">

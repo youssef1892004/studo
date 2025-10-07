@@ -32,7 +32,7 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  
+
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -45,67 +45,75 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
 
     const loadAndGenerateWaveform = async () => {
       try {
-        console.log('🎵 بدء تحميل الموجة لـ:', audioUrl);
-        
-        // تحميل الملف الصوتي
-        const response = await fetch(audioUrl);
-        if (!response.ok) throw new Error('فشل تحميل الصوت');
-        
-        const arrayBuffer = await response.arrayBuffer();
-        
-        // إنشاء Audio Context
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        console.log("🎵 بدء تحميل الموجة لـ:", audioUrl);
+
+        if (!audioUrl || typeof audioUrl !== "string") {
+          console.warn("❗ رابط الصوت غير صالح:", audioUrl);
+          return;
         }
-        
-        // فك تشفير الصوت
+
+        let arrayBuffer: ArrayBuffer;
+
+        // ✅ التعامل مع blob URLs مباشرة
+        if (audioUrl.startsWith("blob:")) {
+          console.log("📦 جارٍ قراءة blob مباشرة...");
+          const response = await fetch(audioUrl);
+          arrayBuffer = await response.arrayBuffer();
+        } else {
+          // 🔗 روابط Wasabi أو سيرفر
+          const response = await fetch(audioUrl);
+          if (!response.ok) throw new Error("فشل تحميل الصوت");
+          arrayBuffer = await response.arrayBuffer();
+        }
+
+        // 🎧 إنشاء AudioContext
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext ||
+            (window as any).webkitAudioContext)();
+        }
+
+        // 🔍 فك تشفير الصوت
         const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-        
+
         if (!mounted) return;
-        
-        console.log('✅ تم فك تشفير الصوت:', {
+
+        console.log("✅ تم فك تشفير الصوت:", {
           duration: audioBuffer.duration,
           sampleRate: audioBuffer.sampleRate,
-          channels: audioBuffer.numberOfChannels
+          channels: audioBuffer.numberOfChannels,
         });
-        
-        // استخراج بيانات القناة الأولى
+
+        // 🎨 توليد الموجة
         const rawData = audioBuffer.getChannelData(0);
-        const samples = 300; // عدد النقاط في الموجة
+        const samples = 300;
         const blockSize = Math.floor(rawData.length / samples);
         const filteredData: number[] = [];
-        
-        // حساب متوسط الطاقة لكل block
+
         for (let i = 0; i < samples; i++) {
           let sum = 0;
           for (let j = 0; j < blockSize; j++) {
             const index = i * blockSize + j;
-            if (index < rawData.length) {
-              sum += Math.abs(rawData[index]);
-            }
+            if (index < rawData.length) sum += Math.abs(rawData[index]);
           }
           filteredData.push(sum / blockSize);
         }
-        
-        // Normalize البيانات
+
         const maxAmplitude = Math.max(...filteredData, 0.0001);
-        const normalized = filteredData.map(n => Math.min(n / maxAmplitude, 1));
-        
-        console.log('✅ تم إنشاء الموجة بنجاح:', normalized.length, 'نقطة');
-        
+        const normalized = filteredData.map((n) => Math.min(n / maxAmplitude, 1));
+
+        console.log("✅ تم إنشاء الموجة بنجاح:", normalized.length, "نقطة");
         setWaveformData(normalized);
         setIsLoaded(true);
-        
       } catch (error) {
-        console.error('❌ خطأ في توليد الموجة:', error);
-        
-        // Fallback: إنشاء موجة عشوائية واقعية
+        console.error("❌ خطأ في توليد الموجة:", error);
+
+        // 🎛️ موجة احتياطية عشوائية
         const fallbackData = Array.from({ length: 300 }, (_, i) => {
           const base = Math.sin(i / 10) * 0.5 + 0.5;
           const noise = Math.random() * 0.3;
           return Math.max(0.1, Math.min(1, base + noise));
         });
-        
+
         setWaveformData(fallbackData);
         setIsLoaded(true);
       }
@@ -118,7 +126,7 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
     };
   }, [audioUrl]);
 
-  // رسم الموجة على Canvas
+  // رسم الموجة على Canvas - موجة حقيقية احترافية
   const drawWaveform = useCallback(() => {
     if (!canvasRef.current || waveformData.length === 0) return;
 
@@ -128,12 +136,12 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    
+
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    
+
     ctx.scale(dpr, dpr);
-    
+
     const width = rect.width;
     const height = rect.height;
     const progress = duration > 0 ? Math.min(playbackTime / duration, 1) : 0;
@@ -141,27 +149,68 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
     // مسح Canvas
     ctx.clearRect(0, 0, width, height);
 
-    // رسم الموجة
-    const barWidth = width / waveformData.length;
     const centerY = height / 2;
-    
-    waveformData.forEach((amplitude, index) => {
-      const barHeight = amplitude * height * 0.85;
-      const x = index * barWidth;
-      const y = centerY - barHeight / 2;
-      
-      const barProgress = index / waveformData.length;
-      
-      // لون البار حسب التقدم
-      if (barProgress < progress) {
-        ctx.fillStyle = progressColor;
-      } else {
-        ctx.fillStyle = color;
+    const spacing = width / waveformData.length;
+
+    // دالة رسم الموجة المتصلة
+    const drawWavePath = (fillColor: string, startIdx: number, endIdx: number) => {
+      ctx.beginPath();
+      ctx.moveTo(startIdx * spacing, centerY);
+
+      // رسم الجزء العلوي من الموجة
+      for (let i = startIdx; i <= endIdx; i++) {
+        const x = i * spacing;
+        const amplitude = waveformData[i] || 0;
+        const y = centerY - (amplitude * height * 0.4);
+        
+        if (i === startIdx) {
+          ctx.lineTo(x, y);
+        } else {
+          // استخدام منحنيات بيزيه للحصول على موجة سلسة
+          const prevX = (i - 1) * spacing;
+          const cpX = (prevX + x) / 2;
+          ctx.quadraticCurveTo(cpX, y, x, y);
+        }
       }
-      
-      // رسم البار
-      ctx.fillRect(x, y, Math.max(barWidth - 1, 1), barHeight);
-    });
+
+      // رسم الجزء السفلي من الموجة (انعكاس)
+      for (let i = endIdx; i >= startIdx; i--) {
+        const x = i * spacing;
+        const amplitude = waveformData[i] || 0;
+        const y = centerY + (amplitude * height * 0.4);
+        
+        if (i === endIdx) {
+          ctx.lineTo(x, y);
+        } else {
+          const nextX = (i + 1) * spacing;
+          const cpX = (x + nextX) / 2;
+          ctx.quadraticCurveTo(cpX, y, x, y);
+        }
+      }
+
+      ctx.closePath();
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+    };
+
+    // رسم الجزء الذي تم تشغيله
+    const progressIndex = Math.floor(progress * waveformData.length);
+    if (progressIndex > 0) {
+      drawWavePath(progressColor, 0, progressIndex);
+    }
+
+    // رسم الجزء المتبقي
+    if (progressIndex < waveformData.length - 1) {
+      drawWavePath(color, progressIndex, waveformData.length - 1);
+    }
+
+    // رسم خط مركزي رفيع
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(width, centerY);
+    ctx.stroke();
 
     // رسم المنطقة المحددة
     if (selectedRegion && isSelecting) {
@@ -169,27 +218,54 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
       const endX = (selectedRegion.end / duration) * width;
       const regionWidth = endX - startX;
 
-      // خلفية شفافة
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+      // خلفية شفافة مع تدرج
+      const gradient = ctx.createLinearGradient(startX, 0, endX, 0);
+      gradient.addColorStop(0, 'rgba(59, 130, 246, 0.15)');
+      gradient.addColorStop(0.5, 'rgba(59, 130, 246, 0.25)');
+      gradient.addColorStop(1, 'rgba(59, 130, 246, 0.15)');
+      ctx.fillStyle = gradient;
       ctx.fillRect(startX, 0, regionWidth, height);
 
-      // إطار المنطقة
+      // إطار المنطقة مع تأثير الظل
+      ctx.shadowColor = 'rgba(59, 130, 246, 0.5)';
+      ctx.shadowBlur = 10;
       ctx.strokeStyle = '#3B82F6';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       ctx.strokeRect(startX, 0, regionWidth, height);
+      ctx.shadowBlur = 0;
 
-      // مقابض السحب
-      const handleWidth = 10;
-      const handleHeight = height;
+      // مقابض السحب بتصميم دائري
+      const handleRadius = 8;
       
-      // مقبض البداية (أحمر)
+      // مقبض البداية
       ctx.fillStyle = '#EF4444';
-      ctx.fillRect(startX - handleWidth / 2, 0, handleWidth, handleHeight);
+      ctx.shadowColor = 'rgba(239, 68, 68, 0.5)';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(startX, centerY, handleRadius, 0, Math.PI * 2);
+      ctx.fill();
       
-      // مقبض النهاية (أحمر)
+      // حلقة بيضاء داخلية
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(startX, centerY, handleRadius - 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // مقبض النهاية
       ctx.fillStyle = '#EF4444';
-      ctx.fillRect(endX - handleWidth / 2, 0, handleWidth, handleHeight);
+      ctx.shadowColor = 'rgba(239, 68, 68, 0.5)';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(endX, centerY, handleRadius, 0, Math.PI * 2);
+      ctx.fill();
       
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(endX, centerY, handleRadius - 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
       // خط منتصف للسحب
       ctx.strokeStyle = '#3B82F6';
       ctx.lineWidth = 2;
@@ -228,10 +304,9 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    
+
     const startX = (selectedRegion.start / duration) * rect.width;
     const endX = (selectedRegion.end / duration) * rect.width;
-    const middleX = (startX + endX) / 2;
 
     // تحديد نوع السحب
     if (Math.abs(x - startX) < 15) {
@@ -267,7 +342,7 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
       const centerTime = currentTime;
       newStart = Math.max(0, centerTime - regionDuration / 2);
       newEnd = Math.min(duration, newStart + regionDuration);
-      
+
       // تعديل إذا وصلنا للنهاية
       if (newEnd >= duration) {
         newEnd = duration;
@@ -338,7 +413,7 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        style={{ 
+        style={{
           display: 'block',
           cursor: isDragging ? 'grabbing' : isSelecting ? 'crosshair' : 'pointer'
         }}
@@ -353,11 +428,6 @@ const WaveformSegment: React.FC<WaveformSegmentProps> = ({
           </div>
         </div>
       )}
-
-      
-      
-
-      
     </div>
   );
 };
