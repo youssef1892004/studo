@@ -9,14 +9,23 @@ import React, { useEffect, useState } from "react";
 
      const fetchLinks = async () => {
        try {
+         console.log(`[GeneratedLinks] Fetching for projectId: ${projectId}`);
          setLoading(true);
          const res = await fetch(`/api/project/get-records?projectId=${projectId}`);
-         if (!res.ok) throw new Error("Failed fetching records");
+         console.log(`[GeneratedLinks] API response status: ${res.status}`);
+
+         if (!res.ok) {
+           const errorText = await res.text();
+           throw new Error(`Failed fetching records. Status: ${res.status}. Body: ${errorText}`);
+         }
+
          const data = await res.json();
+         console.log("[GeneratedLinks] Data received:", data);
+
          setLinks(data || []);
          setError(null);
        } catch (err: any) {
-         console.error(err);
+         console.error("[GeneratedLinks] Fetch error:", err);
          setError(err.message || "Unknown error");
        } finally {
          setLoading(false);
@@ -24,14 +33,26 @@ import React, { useEffect, useState } from "react";
      };
 
      useEffect(() => {
-       if (!projectId) return;
+       if (!projectId) {
+         console.log("[GeneratedLinks] No projectId provided.");
+         return;
+       }
+       console.log("[GeneratedLinks] Component mounted with projectId:", projectId);
        fetchLinks();
        const interval = setInterval(fetchLinks, 10000); // poll every 10s
        return () => clearInterval(interval);
      }, [projectId]);
 
-     if (loading) return <div>Loading audio links…</div>;
-     if (error) return <div className="text-red-500">Error: {error}</div>;
+     if (loading) {
+        console.log("[GeneratedLinks] Render: Loading state");
+        return <div>Loading audio links…</div>;
+     }
+     if (error) {
+        console.error("[GeneratedLinks] Render: Error state", error);
+        return <div className="text-red-500">Error: {error}</div>;
+     }
+
+     console.log(`[GeneratedLinks] Render: Success state with ${links.length} links.`);
 
      return (
        <div>
