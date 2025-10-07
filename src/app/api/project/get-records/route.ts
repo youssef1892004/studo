@@ -82,11 +82,11 @@ export async function GET(req: Request) {
                     };
                 } catch (presignError) {
                     console.error(`Failed to pre-sign URL for ${record.project_link}:`, presignError);
-                    // Return the original record so the frontend can see the failure
+                    // Return the original record with a specific error message
                     return {
                         ...record,
-                        project_link: '#', // Indicate a failed URL
-                        error: 'Failed to generate playable link'
+                        project_link: null, // Set link to null to prevent rendering a broken player
+                        error: (presignError instanceof Error) ? presignError.message : 'Failed to generate playable link'
                     };
                 }
             })
