@@ -204,109 +204,116 @@ export default function StudioProjectPage() {
         setIsGenerating(true);
         setError(null);
         
-        // [MODIFIED] استخدام toast.loading
-        const loadingToastId = toast.loading(`جاري بدء توليد ${cardsToGenerate.length} مقطع صوتي...`);
+        const totalCards = cardsToGenerate.length;
+        const loadingToastId = toast.loading(`جاري بدء توليد ${totalCards} مقطع صوتي...`);
 
-        const generationPromises = cardsToGenerate.map(card => 
-            new Promise<void>(async (resolve, reject) => {
-                updateCard(card.id, { 
-                  isGenerating: true, 
-                  audioUrl: undefined, 
-                  duration: undefined 
-                });
+        let completedCount = 0;
+        let failedCount = 0;
+
+        for (const card of cardsToGenerate) {
+            try {
+                toast.loading(`جاري توليد المقطع ${completedCount + failedCount + 1} من ${totalCards}...`, { id: loadingToastId });
                 
-                try {
-                    // ... (API call logic remains the same) ...
-                    const text = card.data.blocks
-                      .map(b => b.data.text)
-                      .join(' ')
-                      .trim();
-                      
-                    const isArabic = card.isArabic;
-
-                    const createResponse = await fetch('/api/tts/generate-segment', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text, voice: card.voice, isArabic }),
+                await new Promise<void>(async (resolve, reject) => {
+                    updateCard(card.id, { 
+                      isGenerating: true, 
+                      audioUrl: undefined, 
+                      duration: undefined 
                     });
                     
-                    if (!createResponse.ok) {
-                        const errorData = await createResponse.json();
-                        throw new Error(errorData.error || 'Failed to start job.');
-                    }
-                    
-                    const { job_id } = await createResponse.json();
-                    
-                    updateCard(card.id, { job_id: job_id });
+                    try {
+                        const text = card.data.blocks
+                          .map(b => b.data.text)
+                          .join(' ')
+                          .trim();
+                          
+                        const isArabic = card.isArabic;
 
-                    pollingIntervals.current[card.id] = setInterval(async () => {
-                        try {
-                            const statusResponse = await fetch(`/api/tts/status/${job_id}`);
-                            if (!statusResponse.ok) {
-                              throw new Error(`Status check failed for job ${job_id}`);
-                            }
-                            
-                            const statusData = await statusResponse.json();
-                            
-                            if (statusData.status === 'completed') {
+                        const createResponse = await fetch('/api/tts/generate-segment', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text, voice: card.voice, isArabic }),
+                        });
+                        
+                        if (!createResponse.ok) {
+                            const errorData = await createResponse.json();
+                            throw new Error(errorData.error || 'Failed to start job.');
+                        }
+                        
+                        const { job_id } = await createResponse.json();
+                        
+                        updateCard(card.id, { job_id: job_id });
+
+                        pollingIntervals.current[card.id] = setInterval(async () => {
+                            try {
+                                const statusResponse = await fetch(`/api/tts/status/${job_id}`);
+                                if (!statusResponse.ok) {
+                                  throw new Error(`Status check failed for job ${job_id}`);
+                                }
+                                
+                                const statusData = await statusResponse.json();
+                                
+                                if (statusData.status === 'completed') {
+                                    clearInterval(pollingIntervals.current[card.id]);
+                                    delete pollingIntervals.current[card.id];
+                                    
+                                    try {
+                                        const audioResponse = await fetch(`/api/tts/result/${job_id}`);
+                                        const audioBlob = await audioResponse.blob();
+                                        const audioUrl = URL.createObjectURL(audioBlob);
+                                        const persistentUrl = await uploadAudioSegment(audioBlob, card.id); 
+                                        let durationInSeconds = 0;
+                                        try {
+                                            const buffer = await audioBlob.arrayBuffer();
+                                            const duration = getMP3Duration(Buffer.from(buffer)); 
+                                            durationInSeconds = duration / 1000;
+                                        } catch (durationError) {
+                                            console.error(`Could not calculate MP3 duration for job ${job_id}. This is non-fatal:`, durationError);
+                                        }
+                                        
+                                        updateCard(card.id, { 
+                                          isGenerating: false, 
+                                          audioUrl, 
+                                          persistentAudioUrl: persistentUrl,
+                                          duration: durationInSeconds 
+                                        });
+                                        resolve();
+                                    } catch (resultError) {
+                                        console.error(`Error processing audio result for job ${job_id}:`, resultError);
+                                        reject(new Error(`Failed to process audio for job ${job_id}`));
+                                    }
+
+                                } else if (statusData.status === 'failed') {
+                                    throw new Error('Audio generation failed on backend.');
+                                }
+                            } catch (pollError: any) {
                                 clearInterval(pollingIntervals.current[card.id]);
                                 delete pollingIntervals.current[card.id];
-                                
-                                try {
-                                    const audioResponse = await fetch(`/api/tts/result/${job_id}`);
-                                    const audioBlob = await audioResponse.blob();
-                                    const audioUrl = URL.createObjectURL(audioBlob);
-                                    const persistentUrl = await uploadAudioSegment(audioBlob, card.id); 
-                                    let durationInSeconds = 0;
-                                    try {
-                                        const buffer = await audioBlob.arrayBuffer();
-                                        const duration = getMP3Duration(Buffer.from(buffer)); 
-                                        durationInSeconds = duration / 1000;
-                                    } catch (durationError) {
-                                        console.error(`Could not calculate MP3 duration for job ${job_id}. This is non-fatal:`, durationError);
-                                    }
-                                    
-                                    updateCard(card.id, { 
-                                      isGenerating: false, 
-                                      audioUrl, 
-                                      persistentAudioUrl: persistentUrl,
-                                      duration: durationInSeconds 
-                                    });
-                                    resolve();
-                                } catch (resultError) {
-                                    console.error(`Error processing audio result for job ${job_id}:`, resultError);
-                                    reject(new Error(`Failed to process audio for job ${job_id}`));
-                                }
-
-                            } else if (statusData.status === 'failed') {
-                                throw new Error('Audio generation failed on backend.');
+                                toast.error(`فشل توليد مقطع: ${card.id.substring(0, 4)}. ${pollError.message}`);
+                                reject(pollError);
                             }
-                        } catch (pollError: any) {
-                            clearInterval(pollingIntervals.current[card.id]);
-                            delete pollingIntervals.current[card.id];
-                            // [MODIFIED] استخدام toast.error لإشعار فشل مقطع معين
-                            toast.error(`فشل توليد مقطع: ${card.id.substring(0, 4)}. ${pollError.message}`);
-                            reject(pollError);
-                        }
-                    }, 3000);
-                } catch (initialError) {
-                    updateCard(card.id, { isGenerating: false });
-                    reject(initialError);
-                }
-            })
-        );
-        
-        try {
-            await Promise.all(generationPromises);
-            // [MODIFIED] تحديث الـ Toast الرئيسي بالنجاح
-            toast.success('🎉 تم توليد جميع المقاطع المحددة بنجاح!', { id: loadingToastId });
-        } catch(err: any) {
-            // [MODIFIED] تحديث الـ Toast الرئيسي بالفشل
-            toast.error(err.message || "حدث خطأ أثناء التوليد.", { id: loadingToastId });
-            setError(err.message || "An error occurred during generation.");
-        } finally {
-            setIsGenerating(false);
+                        }, 3000);
+                    } catch (initialError) {
+                        updateCard(card.id, { isGenerating: false });
+                        reject(initialError);
+                    }
+                });
+
+                completedCount++;
+            } catch (err: any) {
+                failedCount++;
+                toast.error(`فشل في توليد المقطع ${completedCount + failedCount}.`, { id: loadingToastId });
+                setError(err.message || "An error occurred during generation.");
+            }
         }
+
+        if (failedCount === 0) {
+            toast.success(`🎉 تم توليد جميع المقاطع (${totalCards}) بنجاح!`, { id: loadingToastId });
+        } else {
+            toast.error(`اكتمل التوليد مع ${failedCount} من الأخطاء.`, { id: loadingToastId });
+        }
+
+        setIsGenerating(false);
     };
   
     const handleDownloadAll = async () => {
