@@ -1,40 +1,35 @@
+
 import { OutputData } from "@editorjs/editorjs";
 
 export interface Voice {
-  name: string; // المعرف الفريد مثل "ar-SA-HamedNeural"
+  name: string;
   gender: 'Male' | 'Female' | 'Not specified';
-  languageName: string; // اسم اللغة الكامل مثل "Arabic"
-  languageCode: string; // رمز اللغة مثل "ar"
-  countryName: string; // اسم البلد الكامل مثل "السعودية"
-  countryCode: string; // رمز البلد مثل "SA"
-  characterName: string; // اسم الشخصية الواضح مثل "Hamed"
+  languageName: string;
+  languageCode: string;
+  countryName: string;
+  countryCode: string;
+  characterName: string;
 }
 
-export interface TTSCardData {
+// Represents a single editor card/block in the studio UI
+export interface StudioBlock {
+  // Backend fields from Voice_Studio_blocks
   id: string;
+  project_id: string;
+  block_index: number;
+  content: OutputData;
+  s3_url?: string;
+  created_at: string;
+
+  // Frontend-only state
   voice: string;
-  data: OutputData;
-  text?: string;
-  audioUrl?: string;
+  audioUrl?: string;      // Temporary URL for client-side playback
   duration?: number;
   isGenerating?: boolean;
   job_id?: string;
-  createdAt?: string | Date;
   isArabic?: boolean;
-  persistentAudioUrl?: string;
   trimStart?: number;
   trimEnd?: number;
-}
-
-export interface TTSRequestItem {
-  id: string;
-  text: string;
-  voice: string;
-}
-
-export interface Segment {
-  id: string;
-  duration: number;
 }
 
 export interface User {
@@ -50,4 +45,12 @@ export interface HasuraUser {
   email: string;
   passwordHash: string;
   roles: { role: string }[];
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  crated_at: string;
+  user_id: string;
 }

@@ -26,9 +26,18 @@ async function getAccessToken() {
 
 export async function POST(request: NextRequest) {
   try {
-    const requestBlocks = await request.json(); 
+    const requestBody = await request.json();
+    const { project_id, user_id, blocks } = requestBody;
+
+    if (!blocks || !Array.isArray(blocks)) {
+      return NextResponse.json({ error: 'The 'blocks' array is missing or invalid in the request body.' }, { status: 400 });
+    }
+
+    // For now, we just log the project and user IDs.
+    console.log(`Received TTS request for project_id: ${project_id}, user_id: ${user_id}`);
+
     const token = await getAccessToken();
-    const payload = { blocks: requestBlocks };
+    const payload = { blocks: blocks };
 
     const jobResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts`, {
       method: 'POST',

@@ -1,7 +1,6 @@
 // src/lib/graphql.ts
 
-import { TTSCardData } from "./types";
-import { v4 as uuidv4 } from 'uuid';
+import { Project, TTSCardData as StudioBlock } from "./types";
 
 const HASURA_GRAPHQL_URL = process.env.NEXT_PUBLIC_HASURA_GRAPHQL_URL;
 const HASURA_ADMIN_SECRET = process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET;
@@ -32,114 +31,144 @@ async function fetchGraphQL<T>(query: string, variables: Record<string, any>): P
   return response.json();
 }
 
-interface Project {
-  id: string;
-  userid: string;
-  comments: string;
-  last_updated: string;
-  blocks: TTSCardData[];
-}
+// --- Project Functions ---
 
-// دالة لجلب المشاريع
 export const getProjectsByUserId = async (userId: string): Promise<Project[]> => {
   const query = `
     query GetProjects($userId: uuid!) {
-      libaray_Projects(where: {userid: {_eq: $userId}}, order_by: {last_updated: desc}) {
+      Voice_Studio_projects(where: {user_id: {_eq: $userId}}, order_by: {crated_at: desc}) {
         id
-        userid
-        comments
-        last_updated
-        blocks
+        name
+        description
+        crated_at
+        user_id
       }
     }
   `;
-  const response = await fetchGraphQL<{ libaray_Projects: Project[] }>(query, { userId });
+  const response = await fetchGraphQL<{ Voice_Studio_projects: Project[] }>(query, { userId });
   if (response.errors) throw new Error(response.errors[0].message);
-  // Hasura will return 'blocks' as a JSON object directly, no need to parse
-  return response.data?.libaray_Projects || [];
+  return response.data?.Voice_Studio_projects || [];
 };
 
-// دالة لإنشاء مشروع جديد
-export const insertProject = async (userId: string, title: string): Promise<Project> => {
-    // FIX: Changed variable type for $blocks from String! to jsonb!
+export const insertProject = async (userId: string, name: string, description: string): Promise<Project> => {
     const mutation = `
-      mutation InsertProject($userid: uuid!, $comments: String, $last_updated: timestamptz!, $blocks: jsonb!) {
-        insert_libaray_Projects_one(object: {userid: $userid, comments: $comments, last_updated: $last_updated, blocks: $blocks}) {
-          id
-          comments
-          last_updated
-          blocks
+      mutation InsertProjects($description: String, $name: String, $user_id: uuid!, $crated_at: timestamptz!) {
+        insert_Voice_Studio_projects(objects: {description: $description, name: $name, user_id: $user_id, crated_at: $crated_at}) {
+          returning {
+            id
+            name
+            description
+            crated_at
+            user_id
+          }
         }
       }
     `;
-    const defaultBlock: TTSCardData = {
-        id: uuidv4(),
-        voice: 'ar-SA-HamedNeural',
-        data: { time: Date.now(), blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: `مرحبًا بك في مشروعك الجديد "${title}"` } }] },
-    };
     const variables = {
-      userid: userId,
-      comments: title,
-      last_updated: new Date().toISOString(),
-      // FIX: Pass the blocks array directly as a JSON object, not a string
-      blocks: [defaultBlock],
+      user_id: userId,
+      name: name,
+      description: description,
+      crated_at: new Date().toISOString(),
     };
-    const response = await fetchGraphQL<{ insert_libaray_Projects_one: Project }>(mutation, variables);
+    const response = await fetchGraphQL<{ insert_Voice_Studio_projects: { returning: Project[] } }>(mutation, variables);
     if (response.errors) throw new Error(response.errors[0].message);
-    return response.data!.insert_libaray_Projects_one;
+    return response.data!.insert_Voice_Studio_projects.returning[0];
 };
 
-// دالة لجلب مشروع معين
 export const getProjectById = async (projectId: string): Promise<Project | null> => {
     const query = `
       query GetProjectById($id: uuid!) {
-        libaray_Projects_by_pk(id: $id) {
-          id, userid, comments, last_updated, blocks
+        Voice_Studio_projects_by_pk(id: $id) {
+          id
+          name
+          description
+          crated_at
+          user_id
         }
       }
     `;
-    const response = await fetchGraphQL<{ libaray_Projects_by_pk: Project }>(query, { id: projectId });
+    const response = await fetchGraphQL<{ Voice_Studio_projects_by_pk: Project }>(query, { id: projectId });
     if (response.errors) throw new Error(response.errors[0].message);
-    return response.data?.libaray_Projects_by_pk || null;
+    return response.data?.Voice_Studio_projects_by_pk || null;
 }
 
-// دالة لتحديث مشروع حالي
-export const updateProject = async (projectId: string, cards: TTSCardData[], title: string) => {
-    // FIX: Changed variable type for $blocks from String! to jsonb!
+export const updateProject = async (projectId: string, name: string, description: string) => {
     const mutation = `
-        mutation UpdateProject($id: uuid!, $blocks: jsonb!, $comments: String, $last_updated: timestamptz!) {
-            update_libaray_Projects_by_pk(pk_columns: {id: $id}, _set: {blocks: $blocks, comments: $comments, last_updated: $last_updated}) {
+        mutation UpdateProject($id: uuid!, $name: String, $description: String) {
+            update_Voice_Studio_projects_by_pk(pk_columns: {id: $id}, _set: {name: $name, description: $description}) {
                 id
             }
         }
     `;
     const variables = { 
         id: projectId, 
-        // FIX: Pass the blocks array directly as a JSON object
-        blocks: cards, 
-        comments: title, 
-        last_updated: new Date().toISOString() 
+        name: name,
+        description: description,
     };
     const response = await fetchGraphQL(mutation, variables);
     if (response.errors) throw new Error(response.errors[0].message);
     return response.data;
 }
-// --- (جديد) دالة لحذف مشروع ---
+
 export const deleteProject = async (projectId: string): Promise<{ id: string }> => {
     const mutation = `
         mutation DeleteProject($id: uuid!) {
-            delete_libaray_Projects_by_pk(id: $id) {
+            delete_Voice_Studio_projects_by_pk(id: $id) {
                 id
             }
         }
     `;
     const variables = { id: projectId };
-    const response = await fetchGraphQL<{ delete_libaray_Projects_by_pk: { id: string } }>(mutation, variables);
-    if (response.errors) {
-        throw new Error(response.errors[0].message);
+    const response = await fetchGraphQL<{ delete_Voice_Studio_projects_by_pk: { id: string } }>(mutation, variables);
+    if (response.errors) throw new Error(response.errors[0].message);
+    if (!response.data?.delete_Voice_Studio_projects_by_pk) throw new Error("Project not found or could not be deleted.");
+    return response.data.delete_Voice_Studio_projects_by_pk;
+};
+
+// --- Block Functions ---
+
+export const getBlocksByProjectId = async (projectId: string): Promise<StudioBlock[]> => {
+  const query = `
+    query GetBlocks($projectId: uuid!) {
+      Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}, order_by: {block_index: asc}) {
+        id
+        project_id
+        block_index
+        content
+        s3_url
+        created_at
+      }
     }
-    if (!response.data?.delete_libaray_Projects_by_pk) {
-        throw new Error("Project not found or could not be deleted.");
+  `;
+  const response = await fetchGraphQL<{ Voice_Studio_blocks: StudioBlock[] }>(query, { projectId });
+  if (response.errors) throw new Error(response.errors[0].message);
+  return response.data?.Voice_Studio_blocks || [];
+};
+
+export const upsertBlock = async (block: Omit<StudioBlock, 'created_at'>) => {
+  const mutation = `
+    mutation UpsertBlock($block: Voice_Studio_blocks_insert_input!) {
+      insert_Voice_Studio_blocks_one(object: $block, on_conflict: {constraint: Voice_Studio_blocks_pkey, update_columns: [content, block_index, s3_url]}) {
+        id
+      }
     }
-    return response.data.delete_libaray_Projects_by_pk;
+  `;
+  const response = await fetchGraphQL(mutation, { block });
+  if (response.errors) throw new Error(response.errors[0].message);
+  return response.data;
+};
+
+export const deleteBlock = async (blockId: string): Promise<{ id: string }> => {
+  const mutation = `
+    mutation DeleteBlock($id: uuid!) {
+      delete_Voice_Studio_blocks_by_pk(id: $id) {
+        id
+      }
+    }
+  `;
+  const variables = { id: blockId };
+  const response = await fetchGraphQL<{ delete_Voice_Studio_blocks_by_pk: { id: string } }>(mutation, variables);
+  if (response.errors) throw new Error(response.errors[0].message);
+  if (!response.data?.delete_Voice_Studio_blocks_by_pk) throw new Error("Block not found or could not be deleted.");
+  return response.data.delete_Voice_Studio_blocks_by_pk;
 };

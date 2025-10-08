@@ -1,36 +1,46 @@
 // src/components/studio/ProjectHeader.tsx
 'use client';
 
-import { ArrowLeft, Download, Play, LoaderCircle } from 'lucide-react'; // تم حذف RotateCcw, RotateCw, Clock, Share, MoreHorizontal
+import { ArrowLeft, Download, Play, LoaderCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface ProjectHeaderProps {
   projectTitle: string;
   setProjectTitle: (title: string) => void;
+  projectDescription: string;
+  setProjectDescription: (description: string) => void;
   isGenerating: boolean;
   handleGenerate: () => void;
   handleDownloadAll: () => void;
 }
 
 export default function ProjectHeader({ 
-  projectTitle, setProjectTitle, isGenerating, handleGenerate, handleDownloadAll
+  projectTitle, setProjectTitle, projectDescription, setProjectDescription, isGenerating, handleGenerate, handleDownloadAll
 }: ProjectHeaderProps) {
   const router = useRouter();
 
   return (
     <div className="flex items-center justify-between px-4 h-full">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4"> {/* Increased gap */}
         <button onClick={() => router.push('/projects')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Back to projects">
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
-        <input 
-          type="text"
-          value={projectTitle}
-          onChange={(e) => setProjectTitle(e.target.value)}
-          className="text-lg font-semibold text-gray-800 bg-transparent focus:outline-none focus:ring-0 border-0"
-          placeholder="Project name"
-        />
-        {/* تم حذف أزرار التراجع والإعادة */}
+        <div className="flex flex-col"> {/* Wrapper for inputs */}
+          <input 
+            type="text"
+            value={projectTitle}
+            onChange={(e) => setProjectTitle(e.target.value)}
+            className="text-md font-semibold text-gray-800 bg-transparent focus:outline-none focus:ring-0 border-0 p-0"
+            placeholder="Project name"
+          />
+          <input 
+            type="text"
+            value={projectDescription}
+            onChange={(e) => setProjectDescription(e.target.value)}
+            className="text-xs text-gray-500 bg-transparent focus:outline-none focus:ring-0 border-0 p-0"
+            placeholder="Project description..."
+          />
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
@@ -38,8 +48,6 @@ export default function ProjectHeader({
           {isGenerating ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
           {isGenerating ? 'Generating...' : 'Generate'}
         </button>
-        
-        {/* تم حذف أزرار السجل والمشاركة والمزيد */}
         
         <button onClick={handleDownloadAll} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors" title="Download All">
            <Download className="w-5 h-5 text-gray-700" />

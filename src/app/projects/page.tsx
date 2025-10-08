@@ -1,4 +1,3 @@
-// src/app/projects/page.tsx
 'use client';
 
 import { AuthContext } from "@/contexts/AuthContext";
@@ -7,48 +6,43 @@ import { FilePlus, LoaderCircle, Trash2, Zap, Users, Image, Video, Mic } from "l
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useContext, useEffect, useState, MouseEvent } from "react";
-import toast from "react-hot-toast"; // تم إضافة toast للإشعارات
-
-interface Project {
-    id: string;
-    comments: string;
-    last_updated: string;
-}
+import toast from "react-hot-toast";
+import { Project } from "@/lib/types"; // Import Project type
 
 const upcomingFeatures = [
-    { 
+    {
         title: "المؤثرات الصوتية", 
         description: "إضافة تأثيرات (صدى، فلترة، تردد) على المقاطع الصوتية.", 
         icon: Zap 
     },
-    { 
+    {
         title: "أصوات جديدة وموسعة", 
         description: "إطلاق مجموعة ضخمة من الأصوات الاحترافية واللهجات الإقليمية.", 
         icon: Users 
     },
-    { 
+    {
         title: "توليد الصور بالذكاء الاصطناعي", 
         description: "تحويل النص إلى صورة (Text-to-Image) لإنشاء خلفيات بصرية.", 
         icon: Image 
     },
-    { 
+    {
         title: "توليد الفيديوهات القصيرة", 
         description: "دمج الصوت مع الصور الثابتة أو مقاطع الفيديو البسيطة.", 
         icon: Video 
     },
-    { 
+    {
         title: "التسجيل وتحويل الصوت (AI)", 
         description: "سجل صوتك وحوّله إلى أي صوت آخر مدعوم بتقنيات الاستنساخ الآمن.", 
         icon: Mic 
     },
 ];
 
-
 export default function ProjectsPage() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
     const [newProjectName, setNewProjectName] = useState("");
+    const [newProjectDescription, setNewProjectDescription] = useState("");
     const [showCreateModal, setShowCreateModal] = useState(false);
     
     const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
@@ -74,7 +68,7 @@ export default function ProjectsPage() {
         if (!newProjectName.trim() || !authContext?.user?.id) return;
         setIsCreating(true);
         try {
-            const newProject = await insertProject(authContext.user.id, newProjectName);
+            const newProject = await insertProject(authContext.user.id, newProjectName, newProjectDescription);
             toast.success(`تم إنشاء مشروع "${newProjectName}" بنجاح!`);
             router.push(`/studio/${newProject.id}`);
         } catch (error) {
@@ -84,6 +78,7 @@ export default function ProjectsPage() {
             setIsCreating(false);
             setShowCreateModal(false);
             setNewProjectName("");
+            setNewProjectDescription("");
         }
     };
 
@@ -96,7 +91,7 @@ export default function ProjectsPage() {
     const confirmDelete = async () => {
         if (!projectToDelete) return;
         setIsDeleting(true);
-        const projectName = projectToDelete.comments;
+        const projectName = projectToDelete.name;
         try {
             await deleteProject(projectToDelete.id);
             setProjects(currentProjects => currentProjects.filter(p => p.id !== projectToDelete.id));
@@ -112,7 +107,6 @@ export default function ProjectsPage() {
 
 
     if (isLoading) {
-        // [MODIFIED] شاشة تحميل مخصصة
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white transition-colors duration-300">
                 <LoaderCircle className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mb-4" />
@@ -138,13 +132,14 @@ export default function ProjectsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                     {projects.map(project => (
                         <Link 
-                            href={`/studio/${project.id}`} 
+                            href={`/studio/${project.id}`}
                             key={project.id} 
                             className="group relative block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-shadow border border-gray-100 dark:border-gray-700"
                         >
-                            <h2 className="text-xl font-bold truncate mb-2 text-gray-900 dark:text-white">{project.comments || "Untitled Project"}</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                Last updated: {new Date(project.last_updated).toLocaleDateString()}
+                            <h2 className="text-xl font-bold truncate mb-2 text-gray-900 dark:text-white">{project.name || "Untitled Project"}</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{project.description || "No description"}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                                Created: {new Date(project.crated_at).toLocaleDateString()}
                             </p>
                             <button 
                                 onClick={(e) => handleDeleteClick(project, e)}
@@ -206,6 +201,13 @@ export default function ProjectsPage() {
                                 className="w-full p-3 border rounded-md mb-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 autoFocus
                             />
+                            <textarea
+                                value={newProjectDescription}
+                                onChange={(e) => setNewProjectDescription(e.target.value)}
+                                placeholder="Enter project description (optional)..."
+                                className="w-full p-3 border rounded-md mb-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                rows={3}
+                            />
                             <div className="flex justify-end gap-4">
                                 <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
                                 <button 
@@ -227,7 +229,7 @@ export default function ProjectsPage() {
                     <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Confirm Deletion</h2>
                         <p className="text-gray-600 dark:text-gray-300 mb-6">
-                            Are you sure you want to delete the project &quot;<span className="font-semibold">{projectToDelete.comments}</span>&quot;? This action cannot be undone.
+                            Are you sure you want to delete the project &quot;<span className="font-semibold">{projectToDelete.name}</span>&quot;? This action cannot be undone.
                         </p>
                         <div className="flex justify-end gap-4">
                             <button type="button" onClick={() => setProjectToDelete(null)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>

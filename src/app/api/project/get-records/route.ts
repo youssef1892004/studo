@@ -31,14 +31,14 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
         }
 
-        // 1. Fetch records from Hasura
-        const query = `query GetProjectLinkStorage($projectId: uuid!) {
-            libaray_Project_link_Storage(where: { projectid: { _eq: $projectId } }, order_by: { id: desc }) {
-                id
-                projectid
-                project_link
+        // 1. Fetch records from Hasura using the new schema
+        const query = `query GetBlocksForProject($projectId: uuid!) {
+            Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}, order_by: {created_at: asc}) {
+              id
+              project_id
+              s3_url
             }
-        }`;
+          }`;
 
         const res = await fetch(HASURA_GRAPHQL_URL, {
             method: "POST",
@@ -55,18 +55,24 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: data.errors }, { status: 500 });
         }
 
-        const records = data.data.libaray_Project_link_Storage;
+        const records = data.data.Voice_Studio_blocks;
 
         // 2. Generate pre-signed URLs for each record
         const recordsWithPlayableLinks = await Promise.all(
-            records.map(async (record: { id: string; projectid: string; project_link: string }) => {
+            records.map(async (record: { id: string; project_id: string; s3_url: string }) => {
                 try {
+                    if (!record.s3_url) {
+                        return { ...record, s3_url: null, error: 'No S3 URL found for this block.' };
+                    }
+
                     // Extract the object key from the full URL
                     const urlPrefix = `${WASABI_ENDPOINT}/${S3_BUCKET_NAME}/`;
-                    if (!record.project_link.startsWith(urlPrefix)) {
-                        throw new Error(`Invalid URL format for link: ${record.project_link}`);
+                    if (!record.s3_url.startsWith(urlPrefix)) {
+                        // If it's already a signed URL or a different format, just return it for now.
+                        // A more robust solution might be needed depending on URL formats.
+                        return { ...record, s3_url: record.s3_url };
                     }
-                    const objectKey = record.project_link.substring(urlPrefix.length);
+                    const objectKey = record.s3_url.substring(urlPrefix.length);
 
                     const command = new GetObjectCommand({
                         Bucket: S3_BUCKET_NAME,
@@ -78,14 +84,14 @@ export async function GET(req: Request) {
 
                     return {
                         ...record,
-                        project_link: signedUrl, // Replace with the playable URL
+                        s3_url: signedUrl, // Replace with the playable URL
                     };
                 } catch (presignError) {
-                    console.error(`Failed to pre-sign URL for ${record.project_link}:`, presignError);
+                    console.error(`Failed to pre-sign URL for ${record.s3_url}:`, presignError);
                     // Return the original record with a specific error message
                     return {
                         ...record,
-                        project_link: null, // Set link to null to prevent rendering a broken player
+                        s3_url: null, // Set link to null to prevent rendering a broken player
                         error: (presignError instanceof Error) ? presignError.message : 'Failed to generate playable link'
                     };
                 }
