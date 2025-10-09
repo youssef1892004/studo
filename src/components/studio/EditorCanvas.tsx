@@ -66,6 +66,11 @@ export default function EditorCanvas({
                             ))}
                         </SortableContext>
                     </DndContext>
+                    {cards.length === 0 && !error && !pageMessage && (
+                        <div className="text-center text-gray-500 dark:text-gray-400 py-16">
+                            <p>أضف نصًا لتوليد الصوت، أو انتظر انتهاء العملية الحالية.</p>
+                        </div>
+                    )}
                     <div className="flex justify-center mt-4 p-4">
                         <button onClick={addCard} className="p-3 text-gray-400 hover:text-blue-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                             <Plus size={24} />

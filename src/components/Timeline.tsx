@@ -347,7 +347,7 @@ export default function Timeline({ cards, onCardsUpdate }: TimelineProps) {
                     
                     {audioSegments.map((card, index) => {
                         const characterInitial = card.voice.split('-')[2]?.charAt(0).toUpperCase() || '?';
-                        const textPreview = card.data.blocks.map(b => b.data.text).join(' ').trim();
+                        const textPreview = card.content.blocks.map(b => b.data.text).join(' ').trim();
                         const isCurrentSegment = index === currentCardIndex;
                         const segmentDuration = card.duration || 0;
                         

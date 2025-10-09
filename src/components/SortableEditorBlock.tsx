@@ -37,7 +37,7 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
   };
 
   const [estimatedDuration, setEstimatedDuration] = useState(0);
-  const textContent = props.cardData.data.blocks.map(block => block.data.text || '').join(' ').trim();
+  const textContent = props.cardData.content.blocks.map(block => block.data.text || '').join(' ').trim();
 
   useEffect(() => {
     if (textContent.length > 0) {

@@ -136,8 +136,13 @@ export default function StudioProjectPage() {
         const newCard: StudioBlock = {
             id: newCardId, 
             project_id: projectId,
-            block_index: cards.length,
-            content: { time: Date.now(), blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: '' } }] },
+            block_index: String(cards.length),
+            content: { 
+                time: Date.now(), 
+                blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: '' } }],
+                version: "2.28.2"
+            },
+            s3_url: '', // FIX: Provide a default value for the non-nullable column
             created_at: new Date().toISOString(),
             voice: defaultVoice,
             isGenerating: false,
@@ -215,7 +220,13 @@ export default function StudioProjectPage() {
                 const createResponse = await fetch('/api/tts/generate-segment', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text, voice: card.voice, isArabic: card.isArabic }),
+                    body: JSON.stringify({ 
+                        text, 
+                        voice: card.voice, 
+                        isArabic: card.isArabic,
+                        project_id: projectId,
+                        user_id: authContext.user.id
+                    }),
                 });
                 
                 if (!createResponse.ok) throw new Error((await createResponse.json()).error || 'Failed to start job.');

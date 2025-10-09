@@ -37,7 +37,11 @@ export async function POST(request: NextRequest) {
     console.log(`Received TTS request for project_id: ${project_id}, user_id: ${user_id}`);
 
     const token = await getAccessToken();
-    const payload = { blocks: blocks };
+    const payload = {
+        project_id: project_id,
+        user_id: user_id,
+        blocks: blocks
+    };
 
     const jobResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts`, {
       method: 'POST',

@@ -140,20 +140,67 @@ export const getBlocksByProjectId = async (projectId: string): Promise<StudioBlo
       }
     }
   `;
-  const response = await fetchGraphQL<{ Voice_Studio_blocks: StudioBlock[] }>(query, { projectId });
+  const response = await fetchGraphQL<{ Voice_Studio_blocks: any[] }>(query, { projectId });
   if (response.errors) throw new Error(response.errors[0].message);
-  return response.data?.Voice_Studio_blocks || [];
+
+  const blocks = response.data?.Voice_Studio_blocks || [];
+
+  // Parse the content field from string to object
+  return blocks.map(block => {
+    try {
+      return {
+        ...block,
+        content: typeof block.content === 'string' ? JSON.parse(block.content) : block.content,
+      };
+    } catch (e) {
+      console.error("Failed to parse block content:", block.content, e);
+      // Return a default content structure on parsing failure
+      return {
+        ...block,
+        content: { time: Date.now(), blocks: [], version: "2.28.2" },
+      };
+    }
+  });
 };
 
-export const upsertBlock = async (block: Omit<StudioBlock, 'created_at'>) => {
+export const upsertBlock = async (block: StudioBlock) => {
+  // 🚨 FIX: Filter all frontend-specific properties that cause a "field not found" error.
+  // Note: 'voice' is not in the database, so it must be removed.
+  const {
+    voice,
+    isArabic,
+    audioUrl,
+    duration,
+    isGenerating,
+    job_id,
+    trimStart,
+    trimEnd,
+    ...blockToInsert
+  } = block;
+
+  // Create a new content object with 'time' as a string
+  const contentWithStrTime = {
+    ...blockToInsert.content,
+    time: String(blockToInsert.content.time),
+  };
+
+  // Stringify the modified content object to match the 'text' type in the database
+  const finalBlock = {
+    ...blockToInsert,
+    content: JSON.stringify(contentWithStrTime),
+  };
+
   const mutation = `
     mutation UpsertBlock($block: Voice_Studio_blocks_insert_input!) {
-      insert_Voice_Studio_blocks_one(object: $block, on_conflict: {constraint: Voice_Studio_blocks_pkey, update_columns: [content, block_index, s3_url]}) {
+      insert_Voice_Studio_blocks_one(object: $block, on_conflict: {constraint: blocks_pkey, update_columns: [content, block_index, s3_url]}) {
         id
       }
     }
   `;
-  const response = await fetchGraphQL(mutation, { block });
+
+  const variables = { block: finalBlock };
+
+  const response = await fetchGraphQL(mutation, variables);
   if (response.errors) throw new Error(response.errors[0].message);
   return response.data;
 };

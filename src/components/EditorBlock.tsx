@@ -47,7 +47,7 @@ export default function EditorBlock({ cardData, onUpdate, isActive, onClick }: E
         async onChange(api) {
           try {
             const savedData = await api.saver.save();
-            onUpdate(cardData.id, { data: savedData });
+            onUpdate(cardData.id, { content: savedData });
           } catch(e) {
             console.error("Editor.js save error:", e);
           }

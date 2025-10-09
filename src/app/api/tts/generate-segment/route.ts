@@ -28,7 +28,7 @@ async function getAccessToken() {
 export async function POST(request: NextRequest) {
   try {
     // (تعديل) استقبال الـ flag الجديد
-    const { text, voice } = await request.json(); 
+    const { text, voice, project_id, user_id } = await request.json(); 
     if (!text || !voice) {
       return NextResponse.json({ error: 'Text and voice are required' }, { status: 400 });
     }
@@ -47,7 +47,11 @@ export async function POST(request: NextRequest) {
         ...(isProVoice && { arabic: true, wait_after_ms: 0 }) 
     };
 
-    const payload = { blocks: [blockPayload] };
+    const payload = {
+        project_id: project_id,
+        user_id: user_id,
+        blocks: [blockPayload]
+    };
 
     // 1. إنشاء المهمة وإعادة رقمها فورًا
     const jobResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts`, {

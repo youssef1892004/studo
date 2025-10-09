@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
         // [FIX 3] يجب أن يكون الرابط وفقاً لنقطة نهاية Wasabi ونمط المسار: [endpoint]/[bucket]/[key]
         const s3Url = `${WASABI_ENDPOINT}/${S3_BUCKET_NAME}/${objectKey}`;
 
-        // 4. حفظ الرابط في Hasura
-        await saveLinkToHasura(projectId, s3Url); 
+        // 4. حفظ الرابط في Hasura (تم التعطيل لأنه مكرر ويتم من الواجهة الأمامية)
+        // await saveLinkToHasura(projectId, s3Url); 
 
         // 5. إرجاع رابط S3 الدائم
         return NextResponse.json({ 
