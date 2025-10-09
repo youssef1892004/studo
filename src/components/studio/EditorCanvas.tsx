@@ -4,16 +4,16 @@
 import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react"; // تم حذف Type, Edit3, MoreHorizontal لأننا حذفنا الشريط
-import { TTSCardData, Voice } from "@/lib/types";
+import { StudioBlock, Voice } from "@/lib/types";
 import SortableEditorBlock from "../SortableEditorBlock";
 
 interface EditorCanvasProps {
-    cards: TTSCardData[];
-    setCards: (cards: TTSCardData[] | ((prev: TTSCardData[]) => TTSCardData[])) => void;
+    cards: StudioBlock[];
+    setCards: (cards: StudioBlock[] | ((prev: StudioBlock[]) => StudioBlock[])) => void;
     voices: Voice[];
     activeCardId: string | null;
     setActiveCardId: (id: string | null) => void;
-    updateCard: (id: string, data: Partial<TTSCardData>) => void;
+    updateCard: (id: string, data: Partial<StudioBlock>) => void;
     removeCard: (id: string) => void;
     addCard: () => void;
     error: string | null;

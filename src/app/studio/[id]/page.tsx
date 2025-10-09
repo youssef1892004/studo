@@ -9,7 +9,7 @@ import { fetchVoices } from '@/lib/tts';
 import { Voice, StudioBlock } from '@/lib/types';
 import { LoaderCircle } from 'lucide-react';
 import { AuthContext } from '@/contexts/AuthContext';
-import { getProjectById, updateProject, getBlocksByProjectId, upsertBlock, deleteBlock } from '@/lib/graphql';
+import { getProjectById, updateProject, getBlocksByProjectId, upsertBlock, deleteBlock, subscribeToBlocks } from '@/lib/graphql';
 import getMP3Duration from 'get-mp3-duration';
 import { uploadAudioSegment } from '@/lib/tts';
 import toast from 'react-hot-toast';
@@ -30,6 +30,7 @@ export default function StudioProjectPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [pageMessage, setPageMessage] = useState<string | null>(null);
     
     const isInitialLoad = useRef(true);
     
@@ -78,51 +79,99 @@ export default function StudioProjectPage() {
   
     // Main data loading effect
     useEffect(() => {
-      async function loadProjectAndVoices() {
+      let blockSubscription: { unsubscribe: () => void } | null = null;
+
+      async function loadInitialDataAndSubscribe() {
         if (authContext?.user?.id && projectId) {
           setIsLoading(true);
           try {
-            const [fetchedVoices, projectData, fetchedBlocks] = await Promise.all([
-              fetchVoices(), 
+            // 1. Fetch non-real-time data once
+            const [fetchedVoices, projectData] = await Promise.all([
+              fetchVoices(),
               getProjectById(projectId),
-              getBlocksByProjectId(projectId)
             ]);
-            
+
             if (!projectData || projectData.user_id !== authContext.user.id) {
-                toast.error("Project not found or unauthorized.");
-                router.push('/projects'); 
-                return;
+              toast.error("Project not found or unauthorized.");
+              router.push('/projects');
+              return;
             }
-            
+
             setVoices(fetchedVoices.map(v => ({ ...v, isPro: PRO_VOICES_IDS.includes(v.name) })));
             setProjectTitle(projectData.name || "Untitled Project");
             setProjectDescription(projectData.description || "");
 
-            const initialCards = fetchedBlocks.map(block => ({
-                ...block,
-                voice: 'ar-SA-HamedNeural', // Default voice, can be stored in block later
-                isGenerating: false,
-                isArabic: true, // Default, can be stored in block later
-            }));
+            // 2. Set up the real-time subscription for blocks
+            blockSubscription = subscribeToBlocks(projectId).subscribe({
+              next: async ({ data, errors }) => {
+                if (errors) {
+                  toast.error(`Subscription error: ${errors[0].message}`);
+                  return;
+                }
 
-            setCards(initialCards);
+                const fetchedBlocks = Array.isArray(data?.Voice_Studio_blocks) ? data.Voice_Studio_blocks : [];
 
-            if (initialCards.length > 0) {
-              setActiveCardId(initialCards[0].id);
-            } else {
-              addCard(); // Add a default card if project is empty
-            }
+                // 3. Process the received blocks (fetch signed URLs, parse content)
+                const recordsWithLinksRes = await fetch(`/api/project/get-records?projectId=${projectId}`);
+                const recordsWithLinks = recordsWithLinksRes.ok ? await recordsWithLinksRes.json() : [];
+
+                const finalCards = fetchedBlocks.map((block: any) => {
+                  const plainText = block.content || '';
+                  const parsedContent = {
+                    time: new Date(block.created_at).getTime() || Date.now(),
+                    blocks: [{ id: block.id, type: 'paragraph', data: { text: plainText } }],
+                    version: "2.28.2"
+                  };
+
+                  const recordWithLink = recordsWithLinks.find((r: any) => r.id === block.id);
+
+                  return {
+                    ...block,
+                    content: parsedContent,
+                    voice: 'ar-SA-HamedNeural',
+                    isGenerating: false,
+                    isArabic: true,
+                    audioUrl: recordWithLink ? recordWithLink.s3_url : undefined,
+                  };
+                });
+
+                setCards(finalCards);
+
+                if (isInitialLoad.current && finalCards.length === 0) {
+                  addCard();
+                }
+
+                if (finalCards.length > 0 && !finalCards.some((c: StudioBlock) => c.id === activeCardId)) {
+                  setActiveCardId(finalCards[0].id);
+                } else if (finalCards.length === 0) {
+                  setActiveCardId(null);
+                }
+                
+                // Mark initial load as complete after first data receive
+                if (isInitialLoad.current) {
+                    setIsLoading(false);
+                    isInitialLoad.current = false;
+                }
+              },
+              error: (err) => toast.error(`Subscription failed: ${err.message}`),
+            });
 
           } catch (e: any) {
             toast.error(`Failed to load project data: ${e.message}`);
             setError(e.message);
-          } finally {
             setIsLoading(false);
-            setTimeout(() => { isInitialLoad.current = false; }, 500);
           }
         }
       }
-      loadProjectAndVoices();
+
+      loadInitialDataAndSubscribe();
+
+      // Cleanup function to unsubscribe when the component unmounts
+      return () => {
+        if (blockSubscription) {
+          blockSubscription.unsubscribe();
+        }
+      };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authContext?.user?.id, projectId]); 
 
@@ -136,7 +185,7 @@ export default function StudioProjectPage() {
         const newCard: StudioBlock = {
             id: newCardId, 
             project_id: projectId,
-            block_index: String(cards.length),
+            block_index: cards.length,
             content: { 
                 time: Date.now(), 
                 blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: '' } }],
@@ -168,16 +217,25 @@ export default function StudioProjectPage() {
     };
 
     const removeCard = async (id: string) => {
+        const originalCards = [...cards];
+        const cardToRemove = originalCards.find(c => c.id === id);
+
+        if (!cardToRemove) return;
+
+        // Optimistically remove the card from the UI
+        setCards(prev => prev.filter(card => card.id !== id));
+        if (pollingIntervals.current[id]) {
+            clearInterval(pollingIntervals.current[id]);
+            delete pollingIntervals.current[id];
+        }
+
         try {
             await deleteBlock(id);
-            setCards(prev => prev.filter(card => card.id !== id));
-            if (pollingIntervals.current[id]) {
-                clearInterval(pollingIntervals.current[id]);
-                delete pollingIntervals.current[id];
-            }
             toast.success("Block deleted.");
         } catch (error: any) {
             toast.error(`Failed to delete block: ${error.message}`);
+            // If the delete fails, revert the state
+            setCards(originalCards);
         }
     };
     
@@ -191,6 +249,7 @@ export default function StudioProjectPage() {
     };
     
     const handleGenerate = async () => {
+        if (!authContext.user) return;
         const cardsToGenerate = cards.filter(card =>
             card.content.blocks.some(b => b.data.text && b.data.text.trim().length > 0) && 
             !card.isGenerating
@@ -372,7 +431,8 @@ export default function StudioProjectPage() {
                         updateCard={updateCard}
                         removeCard={removeCard}
                         addCard={addCard}
-                        error={error} 
+                        error={error}
+                        pageMessage={pageMessage} 
                     />
                     <div className="p-4">
                         <GeneratedLinks projectId={projectId} />

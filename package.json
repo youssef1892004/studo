@@ -41,7 +41,8 @@
     "react-hot-toast": "^2.6.0",
     "react-voice-visualizer": "^2.0.8",
     "subscriptions-transport-ws": "^0.11.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zen-observable": "^0.10.0"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.18",

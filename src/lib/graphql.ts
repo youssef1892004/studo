@@ -1,6 +1,6 @@
 // src/lib/graphql.ts
-
-import { Project, TTSCardData as StudioBlock } from "./types";
+import { SubscriptionClient } from 'subscriptions-transport-ws';
+import { Project, StudioBlock } from "./types";
 
 const HASURA_GRAPHQL_URL = process.env.NEXT_PUBLIC_HASURA_GRAPHQL_URL;
 const HASURA_ADMIN_SECRET = process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET;
@@ -127,6 +127,42 @@ export const deleteProject = async (projectId: string): Promise<{ id: string }> 
 
 // --- Block Functions ---
 
+export const getAllBlocks = async (): Promise<StudioBlock[]> => {
+  const query = `
+    query GetBlocks {
+      Voice_Studio_blocks {
+        block_index
+        content
+        s3_url
+        created_at
+        id
+        project_id
+      }
+    }
+  `;
+  const response = await fetchGraphQL<{ Voice_Studio_blocks: any[] }>(query, {});
+  if (response.errors) throw new Error(response.errors[0].message);
+
+  const blocks = response.data?.Voice_Studio_blocks || [];
+
+  // Wrap the plain text content from the DB into an OutputData object for the frontend
+  return blocks.map(block => {
+    const plainText = block.content || '';
+    return {
+      ...block,
+      content: {
+        time: new Date(block.created_at).getTime() || Date.now(),
+        blocks: [{
+          id: block.id,
+          type: 'paragraph',
+          data: { text: plainText }
+        }],
+        version: "2.28.2"
+      },
+    };
+  });
+};
+
 export const getBlocksByProjectId = async (projectId: string): Promise<StudioBlock[]> => {
   const query = `
     query GetBlocks($projectId: uuid!) {
@@ -145,49 +181,44 @@ export const getBlocksByProjectId = async (projectId: string): Promise<StudioBlo
 
   const blocks = response.data?.Voice_Studio_blocks || [];
 
-  // Parse the content field from string to object
+  // Wrap the plain text content from the DB into an OutputData object for the frontend
   return blocks.map(block => {
-    try {
-      return {
-        ...block,
-        content: typeof block.content === 'string' ? JSON.parse(block.content) : block.content,
-      };
-    } catch (e) {
-      console.error("Failed to parse block content:", block.content, e);
-      // Return a default content structure on parsing failure
-      return {
-        ...block,
-        content: { time: Date.now(), blocks: [], version: "2.28.2" },
-      };
-    }
+    const plainText = block.content || '';
+    return {
+      ...block,
+      content: {
+        time: new Date(block.created_at).getTime() || Date.now(),
+        blocks: [{
+          id: block.id,
+          type: 'paragraph',
+          data: { text: plainText }
+        }],
+        version: "2.28.2"
+      },
+    };
   });
 };
 
 export const upsertBlock = async (block: StudioBlock) => {
   // 🚨 FIX: Filter all frontend-specific properties that cause a "field not found" error.
-  // Note: 'voice' is not in the database, so it must be removed.
-  const {
-    voice,
-    isArabic,
-    audioUrl,
-    duration,
-    isGenerating,
-    job_id,
-    trimStart,
-    trimEnd,
-    ...blockToInsert
+  const { 
+    voice, 
+    isArabic, 
+    audioUrl, 
+    duration, 
+    isGenerating, 
+    job_id, 
+    trimStart, 
+    trimEnd, 
+    ...blockToInsert 
   } = block;
 
-  // Create a new content object with 'time' as a string
-  const contentWithStrTime = {
-    ...blockToInsert.content,
-    time: String(blockToInsert.content.time),
-  };
+  // Extract plain text from the content object to be stored in the DB
+  const plainText = blockToInsert.content?.blocks?.map((b: any) => b.data.text || '').join('\n') || '';
 
-  // Stringify the modified content object to match the 'text' type in the database
   const finalBlock = {
     ...blockToInsert,
-    content: JSON.stringify(contentWithStrTime),
+    content: plainText,
   };
 
   const mutation = `
@@ -199,11 +230,12 @@ export const upsertBlock = async (block: StudioBlock) => {
   `;
 
   const variables = { block: finalBlock };
-
+  
   const response = await fetchGraphQL(mutation, variables);
   if (response.errors) throw new Error(response.errors[0].message);
   return response.data;
 };
+
 
 export const deleteBlock = async (blockId: string): Promise<{ id: string }> => {
   const mutation = `
@@ -219,3 +251,41 @@ export const deleteBlock = async (blockId: string): Promise<{ id: string }> => {
   if (!response.data?.delete_Voice_Studio_blocks_by_pk) throw new Error("Block not found or could not be deleted.");
   return response.data.delete_Voice_Studio_blocks_by_pk;
 };
+
+// --- Subscription Function ---
+
+export const subscribeToBlocks = (projectId: string) => {
+    if (!HASURA_GRAPHQL_URL || !HASURA_ADMIN_SECRET) {
+        throw new Error("Hasura environment variables are not configured.");
+    }
+
+    const wsUrl = HASURA_GRAPHQL_URL.replace(/^http/, 'ws');
+
+    const subscriptionClient = new SubscriptionClient(wsUrl, {
+        reconnect: true,
+        connectionParams: {
+            headers: {
+                'x-hasura-admin-secret': HASURA_ADMIN_SECRET,
+            },
+        },
+    });
+
+    const subscriptionQuery = `
+        subscription StreamBlocks($projectId: uuid!) {
+            Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}, order_by: {block_index: asc}) {
+                id
+                project_id
+                block_index
+                content
+                s3_url
+                created_at
+            }
+        }
+    `;
+
+    return subscriptionClient.request({
+        query: subscriptionQuery,
+        variables: { projectId },
+    });
+};
+
