@@ -19,11 +19,13 @@ interface EditorCanvasProps {
     error: string | null;
     pageMessage: string | null;
     projectId: string; // إضافة projectId لتجديد روابط الصوت
+    isBlocksProcessing: boolean;
 }
 
 export default function EditorCanvas({ 
     cards, setCards, voices, activeCardId, setActiveCardId, 
-    updateCard, removeCard, addCard, error, pageMessage, projectId
+    updateCard, removeCard, addCard, error, pageMessage, projectId,
+    isBlocksProcessing
 }: EditorCanvasProps) {
 
     const sensors = useSensors(
@@ -37,6 +39,24 @@ export default function EditorCanvas({
             const newIndex = cards.findIndex(item => item.id === over.id);
             setCards(arrayMove(cards, oldIndex, newIndex));
         }
+    }
+
+    if (isBlocksProcessing) {
+        return (
+            <main className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 p-6 overflow-y-auto bg-white dark:bg-gray-900">
+                    <div className="w-full max-w-4xl mx-auto">
+                        <div className="space-y-4">
+                            {[...Array(3)].map((_, i) => (
+                                <div key={i} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 animate-pulse">
+                                    <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </main>
+        );
     }
 
     return (

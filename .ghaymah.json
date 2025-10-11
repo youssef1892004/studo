@@ -1,5 +1,5 @@
 {
-  "id": "f9465b9d-1b57-47f1-934c-807999011b0f",
+  "id": "2a63b597-5a0f-4061-be4e-48c7cc27ec18",
   "name": "studo",
   "projectId": "ef8f5b73-528f-45bf-bc0b-06663290a170",
   "ports": [
@@ -12,6 +12,25 @@
     "enabled": true,
     "domain": "auto"
   },
-  "resourceTier": "t3",
+  "env": {
+    "TTS_API_BASE_URL": "https://tts-projects5-c0f706f1bd39.hosted.ghaymah.systems/",
+    "TTS_API_USERNAME": "admin",
+    "TTS_API_PASSWORD": "secret",
+    "TTS_PROVIDER_NAME": "ghaymah",
+    "NEXT_PUBLIC_HASURA_GRAPHQL_URL": "https://graphql-333f98f9a304.hosted.ghaymah.systems/v1/graphql",
+    "NEXT_PUBLIC_HASURA_ADMIN_SECRET": "yjHfpXbYZlSkBbvKjudDOpwDnLAHUuXP",
+    "HASURA_GRAPHQL_URL": "https://graphql-333f98f9a304.hosted.ghaymah.systems/v1/graphql",
+    "HASURA_ADMIN_SECRET": "yjHfpXbYZlSkBbvKjudDOpwDnLAHUuXP",
+    
+    "AWS_ACCESS_KEY_ID": "8QQ3W9HE9TJTAW4F7YVZ",
+    "AWS_SECRET_ACCESS_KEY": "C0w54uBtn7uw9qPQBZdekoROXKFtnQeyPTraJnMk",
+    "AWS_S3_BUCKET_NAME": "voicestudio",
+    "AWS_REGION": "eu-south-1",
+    "AWS_S3_ENDPOINT": "https://s3.eu-south-1.wasabisys.com",
+    "NEXT_PUBLIC_AWS_S3_BUCKET_NAME": "voicestudio",
+    "NEXT_PUBLIC_AWS_REGION": "eu-south-1",
+    "NEXT_PUBLIC_AWS_S3_ENDPOINT": "https://s3.eu-south-1.wasabisys.com"
+  },
+  "resourceTier": "t7",
   "dockerFileName": "Dockerfile"
 }

@@ -56,9 +56,10 @@ const formatTime = (time: number) => {
 interface TimelineProps {
   cards: StudioBlock[];
   onCardsUpdate?: (cards: StudioBlock[]) => void; // لتحديث الكروت من المكون الأب
+  isBlocksProcessing: boolean;
 }
 
-export default function Timeline({ cards, onCardsUpdate }: TimelineProps) {
+export default function Timeline({ cards, onCardsUpdate, isBlocksProcessing }: TimelineProps) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
     const [totalDuration, setTotalDuration] = useState(0);
@@ -290,6 +291,14 @@ export default function Timeline({ cards, onCardsUpdate }: TimelineProps) {
     
     const totalWidthWithZoom = totalDuration * zoomLevel;
     const progressLeft = (currentTime / totalDuration) * totalWidthWithZoom;
+
+    if (isBlocksProcessing && audioSegments.length === 0) {
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-gray-50/50" dir="ltr">
+                <div className="text-sm text-gray-500">Processing audio blocks...</div>
+            </div>
+        );
+    }
     
     return (
         <div ref={timelineContainerRef} className="w-full h-full flex flex-col bg-gray-50/50" dir="ltr">

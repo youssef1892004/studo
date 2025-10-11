@@ -20,6 +20,7 @@ import ProjectHeader from '@/components/studio/ProjectHeader';
 import EditorCanvas from '@/components/studio/EditorCanvas';
 import RightSidebar from '@/components/studio/RightSidebar';
 import Timeline from '@/components/Timeline';
+import CenteredLoader from '@/components/CenteredLoader';
 
 const PRO_VOICES_IDS = ['0', '1', '2', '3'];
 
@@ -30,7 +31,8 @@ export default function StudioProjectPage() {
     const [cards, setCards] = useState<StudioBlock[]>([]);
     const [activeCardId, setActiveCardId] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isCriticalLoading, setIsCriticalLoading] = useState(true);
+    const [isBlocksProcessing, setIsBlocksProcessing] = useState(true);
     // مفتاح لإجبار إعادة الرسم بعد تحديث البيانات الصوتية
     const [renderKey, setRenderKey] = useState(0);
     const [error, setError] = useState<string | null>(null);
@@ -97,7 +99,8 @@ export default function StudioProjectPage() {
 
       async function loadInitialDataAndSubscribe() {
         if (authContext?.user?.id && projectId) {
-          setIsLoading(true);
+          setIsCriticalLoading(true);
+          setIsBlocksProcessing(true);
           try {
             // 1. Fetch non-real-time data once
             const voicesPromise = fetchVoices(voicesController.signal).catch((e: any) => {
@@ -116,10 +119,13 @@ export default function StudioProjectPage() {
             if (!projectData || projectData.user_id !== authContext.user.id) {
               toast.error("Project not found or unauthorized.");
               // Prevent indefinite loading spinner before navigation
-              setIsLoading(false);
+              setIsCriticalLoading(false);
+              setIsBlocksProcessing(false);
               router.push('/projects');
               return;
             }
+            
+            setIsCriticalLoading(false);
 
             setVoices(fetchedVoices.map(v => ({ ...v, isPro: PRO_VOICES_IDS.includes(v.name) })));
             setProjectTitle(projectData.name || "Untitled Project");
@@ -200,34 +206,7 @@ export default function StudioProjectPage() {
                   try {
                     new URL(recordWithLink.s3_url);
                     audioUrl = recordWithLink.s3_url;
-
-                    // حساب المدة باستخدام عنصر Audio مباشرة لتجنب طلبات HEAD التي قد تُحظر عبر CORS
-                    try {
-                      const audio = new Audio();
-                      audio.crossOrigin = "anonymous";
-                      audio.src = recordWithLink.s3_url;
-                      await new Promise((resolve) => {
-                        const timeout = setTimeout(() => {
-                          // في حال انتهاء المهلة، نُبقي الرابط بدون مدة
-                          resolve(null);
-                        }, 7000);
-
-                        audio.addEventListener('loadedmetadata', () => {
-                          clearTimeout(timeout);
-                          duration = audio.duration;
-                          resolve(duration);
-                        });
-                        audio.addEventListener('error', (e) => {
-                          clearTimeout(timeout);
-                          console.warn(`Audio metadata load error for block ${block.id}:`, e);
-                          // لا نُسقط الرابط هنا؛ فقط نتابع بدون مدة
-                          resolve(null);
-                        });
-                      });
-                    } catch (error) {
-                      console.warn(`Could not calculate duration for block ${block.id}:`, error);
-                      // نُبقي على الرابط حتى لو فشل حساب المدة
-                    }
+                    // Duration is intentionally left undefined here to be calculated later.
                   } catch (urlError) {
                     console.warn(`Invalid URL for block ${block.id}:`, recordWithLink.s3_url);
                     audioUrl = undefined;
@@ -263,16 +242,16 @@ export default function StudioProjectPage() {
 
               // Mark initial load as complete even before WS pushes an event
               if (isInitialLoad.current) {
-                setIsLoading(false);
                 isInitialLoad.current = false;
               }
+              setIsBlocksProcessing(false); // تم جلب الكتل
             } catch (preloadErr: any) {
               console.warn('Initial blocks preload failed:', preloadErr);
               // Even if preload fails, don't block the UI; let subscription take over
               if (isInitialLoad.current) {
-                setIsLoading(false);
                 isInitialLoad.current = false;
               }
+              setIsBlocksProcessing(false); // تم جلب الكتل
             }
 
             // 3. Set up the real-time subscription for blocks
@@ -323,7 +302,9 @@ export default function StudioProjectPage() {
                   }
 
                   const recordWithLink = recordsWithLinksRef.current.find((r: any) => r.id === block.id);
-                  let duration = undefined;
+                  // التعديل: إعادة استخدام المدة المخزنة سابقًا
+                  const existingCard = cards.find(c => c.id === block.id);
+                  let duration = existingCard?.duration; 
                   let audioUrl = undefined;
 
                   // التحقق من صحة s3_url قبل استخدامه
@@ -333,38 +314,19 @@ export default function StudioProjectPage() {
                       new URL(recordWithLink.s3_url);
                       audioUrl = recordWithLink.s3_url;
 
-                      // حساب المدة باستخدام عنصر Audio مباشرة لتجنب طلبات HEAD التي قد تُحظر عبر CORS
-                      try {
-                        const audio = new Audio();
-                        audio.crossOrigin = "anonymous";
-                        audio.src = recordWithLink.s3_url;
-                        await new Promise((resolve, reject) => {
-                          const timeout = setTimeout(() => {
-                            reject(new Error('Audio loading timeout'));
-                          }, 7000);
-
-                          audio.addEventListener('loadedmetadata', () => {
-                            clearTimeout(timeout);
-                            duration = audio.duration;
-                            resolve(duration);
-                          });
-                          audio.addEventListener('error', (e) => {
-                            clearTimeout(timeout);
-                            console.warn(`Audio metadata load error for block ${block.id}:`, e);
-                            // لا نُسقط الرابط هنا؛ فقط نتابع بدون مدة
-                            resolve(null);
-                          });
-                        });
-                      } catch (error) {
-                        console.warn(`Could not calculate duration for block ${block.id}:`, error);
-                        // نُبقي على الرابط حتى لو فشل حساب المدة
+                      // التعديل: إذا تغير الرابط الصوتي، يجب مسح المدة المخزنة
+                      if (existingCard?.audioUrl !== audioUrl) {
+                        duration = undefined; 
                       }
+
                     } catch (urlError) {
                       console.warn(`Invalid URL for block ${block.id}:`, recordWithLink.s3_url);
                       audioUrl = undefined;
+                      duration = undefined; // reset duration on invalid URL/error
                     }
                   } else if (recordWithLink?.error) {
                     console.warn(`Error with audio file for block ${block.id}:`, recordWithLink.error);
+                    duration = undefined; // reset duration on record error
                   }
 
                   return {
@@ -396,9 +358,9 @@ export default function StudioProjectPage() {
                 
                 // Mark initial load as complete after first data receive
                 if (isInitialLoad.current) {
-                    setIsLoading(false);
                     isInitialLoad.current = false;
                 }
+                setIsBlocksProcessing(false); 
                 } catch (error: any) {
                   console.error('Subscription callback error:', error);
                   toast.error(`Subscription failed: ${error.message}`);
@@ -413,7 +375,8 @@ export default function StudioProjectPage() {
           } catch (e: any) {
             toast.error(`Failed to load project data: ${e.message}`);
             setError(e.message);
-            setIsLoading(false);
+            setIsCriticalLoading(false);
+            setIsBlocksProcessing(false);
           }
         }
       }
@@ -757,11 +720,7 @@ export default function StudioProjectPage() {
     // Avoid infinite spinner: only show auth spinner while auth is resolving.
     // If there's no user after auth resolves, let the redirect effect handle navigation.
     if (authContext?.isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
-            <LoaderCircle className="w-16 h-16 text-blue-600 animate-spin" />
-        </div>
-      );
+      return <CenteredLoader message="Authenticating..." />;
     }
 
     if (!authContext?.user) {
@@ -769,9 +728,8 @@ export default function StudioProjectPage() {
       return null;
     }
 
-    // عرض رسالة تحميل أثناء جلب البيانات الأولية عبر الاشتراك
-    if (isLoading) {
-      return <p className="p-6 text-center text-gray-600">جاري تحميل المقاطع...</p>;
+    if (isCriticalLoading) {
+        return <CenteredLoader message="جاري تحميل إعدادات المشروع والأصوات..." />;
     }
 
     // لا تحجب الصفحة أثناء تحميل البيانات؛ اعرض الواجهة مباشرة
@@ -805,6 +763,7 @@ export default function StudioProjectPage() {
                         error={error}
                         pageMessage={pageMessage}
                         projectId={projectId}
+                        isBlocksProcessing={isBlocksProcessing}
                     />
 
                 </main>
@@ -833,7 +792,11 @@ export default function StudioProjectPage() {
             {cards.length > 0 && (
                 <div className="flex-shrink-0 h-48 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-inner">
                     <div className="h-full flex flex-col">
-                        <Timeline cards={cards} onCardsUpdate={setCards} />
+                        <Timeline 
+                            cards={cards} 
+                            onCardsUpdate={setCards} 
+                            isBlocksProcessing={isBlocksProcessing}
+                        />
                     </div>
                 </div>
             )}
