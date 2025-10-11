@@ -5,7 +5,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import dynamic from 'next/dynamic'; 
-import { Voice, TTSCardData } from '@/lib/types';
+import { Voice, StudioBlock } from '@/lib/types';
 import { GripVertical, Mic, Trash2, Download } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
 import SegmentPlayer from './studio/SegmentPlayer';
@@ -14,12 +14,13 @@ import SegmentPlayer from './studio/SegmentPlayer';
 const EditorBlock = dynamic(() => import('./EditorBlock'), { ssr: false });
 
 interface SortableEditorBlockProps {
-  cardData: TTSCardData;
+  cardData: StudioBlock;
   voices: Voice[];
-  onUpdate: (id: string, data: Partial<TTSCardData>) => void;
+  onUpdate: (id: string, data: Partial<StudioBlock>) => void;
   onRemove: (id: string) => void;
   isActive: boolean;
   onClick: (id: string) => void;
+  projectId: string; // إضافة projectId لتجديد روابط الصوت
 }
 
 export default function SortableEditorBlock(props: SortableEditorBlockProps) {
@@ -121,8 +122,18 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
         
         <div className="flex-grow">
           <EditorBlock {...props} />
-          {props.cardData.audioUrl && (
-            <SegmentPlayer audioUrl={props.cardData.audioUrl} text={textContent} />
+          {props.cardData.audioUrl && 
+           typeof props.cardData.audioUrl === 'string' && 
+           props.cardData.audioUrl.trim() !== '' && (
+            <SegmentPlayer 
+              audioUrl={props.cardData.audioUrl} 
+              text={textContent}
+              blockId={props.cardData.id}
+              projectId={props.projectId}
+              onUrlRefresh={(newUrl) => {
+                props.onUpdate(props.cardData.id, { audioUrl: newUrl });
+              }}
+            />
           )}
         </div>
       </div>

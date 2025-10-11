@@ -3,13 +3,13 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import VoiceCard from './VoiceCard';
-import { Voice, TTSCardData } from '@/lib/types';
+import { Voice, StudioBlock } from '@/lib/types';
 import { GripVertical } from 'lucide-react';
 
 interface SortableVoiceCardProps {
-  cardData: TTSCardData;
+  cardData: StudioBlock;
   voices: Voice[];
-  onUpdate: (id: string, data: Partial<TTSCardData>) => void;
+  onUpdate: (id: string, data: Partial<StudioBlock>) => void;
   onRemove: (id: string) => void;
 }
 

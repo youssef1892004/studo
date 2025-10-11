@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { TTSCardData } from '@/lib/types';
+import { StudioBlock } from '@/lib/types';
 import EditorJS, { OutputData } from '@editorjs/editorjs';
 
 // استيراد أدوات المحرر
@@ -17,8 +17,8 @@ import Table from '@editorjs/table';
 import Paragraph from '@editorjs/paragraph';
 
 interface EditorBlockProps {
-  cardData: TTSCardData;
-  onUpdate: (id: string, data: Partial<TTSCardData>) => void;
+  cardData: StudioBlock;
+  onUpdate: (id: string, data: Partial<StudioBlock>) => void;
   isActive: boolean;
   onClick: (id: string) => void;
 }
@@ -42,7 +42,7 @@ export default function EditorBlock({ cardData, onUpdate, isActive, onClick }: E
           table: Table as any,
           image: SimpleImage as any,
         },
-        data: cardData.data,
+        data: cardData.content,
         minHeight: 1,
         async onChange(api) {
           try {

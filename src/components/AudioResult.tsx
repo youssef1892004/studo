@@ -1,4 +1,11 @@
-import { TTSCardData as AudioResultType } from '@/lib/types';
+// Define local type to match expected result shape
+interface AudioResultType {
+  id: string;
+  text: string;
+  voice: string;
+  audioUrl: string;
+  createdAt?: string;
+}
 import { Download } from 'lucide-react';
 
 interface AudioResultProps {

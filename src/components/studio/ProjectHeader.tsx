@@ -10,12 +10,13 @@ interface ProjectHeaderProps {
   projectDescription: string;
   setProjectDescription: (description: string) => void;
   isGenerating: boolean;
+  isGenerateDisabled?: boolean;
   handleGenerate: () => void;
   handleDownloadAll: () => void;
 }
 
 export default function ProjectHeader({ 
-  projectTitle, setProjectTitle, projectDescription, setProjectDescription, isGenerating, handleGenerate, handleDownloadAll
+  projectTitle, setProjectTitle, projectDescription, setProjectDescription, isGenerating, isGenerateDisabled, handleGenerate, handleDownloadAll
 }: ProjectHeaderProps) {
   const router = useRouter();
 
@@ -44,7 +45,7 @@ export default function ProjectHeader({
       </div>
 
       <div className="flex items-center gap-4">
-        <button onClick={handleGenerate} disabled={isGenerating} className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2">
+        <button onClick={handleGenerate} disabled={isGenerateDisabled ?? isGenerating} className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2">
           {isGenerating ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
           {isGenerating ? 'Generating...' : 'Generate'}
         </button>

@@ -51,6 +51,14 @@ export default function ProjectsPage() {
     const authContext = useContext(AuthContext);
     const router = useRouter();
 
+    // Handle case where user is not logged in to avoid infinite loading
+    useEffect(() => {
+        if (!authContext?.isLoading && !authContext?.user) {
+            setIsLoading(false);
+            router.replace('/login');
+        }
+    }, [authContext?.isLoading, authContext?.user, router]);
+
     useEffect(() => {
         if (authContext?.user?.id) {
             getProjectsByUserId(authContext.user.id)
@@ -139,7 +147,7 @@ export default function ProjectsPage() {
                             <h2 className="text-xl font-bold truncate mb-2 text-gray-900 dark:text-white">{project.name || "Untitled Project"}</h2>
                             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{project.description || "No description"}</p>
                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                                Created: {new Date(project.crated_at).toLocaleDateString()}
+                                Created: {new Date(project.created_at).toLocaleDateString()}
                             </p>
                             <button 
                                 onClick={(e) => handleDeleteClick(project, e)}

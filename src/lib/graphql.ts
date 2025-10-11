@@ -10,6 +10,32 @@ interface GraphQLResponse<T> {
   errors?: Array<{ message: string }>;
 }
 
+// محتوى البلوك قد يكون نصًا عاديًا (مثل "السلام عليكم") أو JSON لسجل EditorJS.
+// هذه الدالة تُعيده بصيغة OutputData آمنة دائمًا.
+function normalizeBlockContent(raw: any) {
+  if (!raw) {
+    return { blocks: [] };
+  }
+  if (typeof raw === 'object') {
+    return raw;
+  }
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      const text = raw;
+      return {
+        time: Date.now(),
+        blocks: [
+          { id: 'plain-text', type: 'paragraph', data: { text } }
+        ],
+        version: '2.28.2'
+      };
+    }
+  }
+  return { blocks: [] };
+}
+
 async function fetchGraphQL<T>(query: string, variables: Record<string, any>): Promise<GraphQLResponse<T>> {
   if (!HASURA_GRAPHQL_URL || !HASURA_ADMIN_SECRET) {
     throw new Error("Hasura environment variables (NEXT_PUBLIC_...) are not configured in .env.local. Please check the file and restart the server.");
@@ -30,6 +56,8 @@ async function fetchGraphQL<T>(query: string, variables: Record<string, any>): P
 
   return response.json();
 }
+
+
 
 // --- Project Functions ---
 
@@ -130,43 +158,43 @@ export const deleteProject = async (projectId: string): Promise<{ id: string }> 
 export const getAllBlocks = async (): Promise<StudioBlock[]> => {
   const query = `
     query GetBlocks {
-      Voice_Studio_blocks {
+      Voice_Studio_blocks(order_by: { block_index: asc }) {
+        id
+        project_id
         block_index
         content
         s3_url
         created_at
-        id
-        project_id
       }
     }
   `;
-  const response = await fetchGraphQL<{ Voice_Studio_blocks: any[] }>(query, {});
-  if (response.errors) throw new Error(response.errors[0].message);
 
-  const blocks = response.data?.Voice_Studio_blocks || [];
+  try {
+    const response = await fetchGraphQL<{ Voice_Studio_blocks: any[] }>(query, {});
+    
+    if (response.errors) {
+      console.error('GraphQL errors:', response.errors);
+      throw new Error(response.errors[0]?.message || 'Unknown GraphQL error');
+    }
 
-  // Wrap the plain text content from the DB into an OutputData object for the frontend
-  return blocks.map(block => {
-    const plainText = block.content || '';
-    return {
+    if (!response.data) {
+      throw new Error('No data received from GraphQL');
+    }
+
+    return response.data.Voice_Studio_blocks.map((block: any) => ({
       ...block,
-      content: {
-        time: new Date(block.created_at).getTime() || Date.now(),
-        blocks: [{
-          id: block.id,
-          type: 'paragraph',
-          data: { text: plainText }
-        }],
-        version: "2.28.2"
-      },
-    };
-  });
+      content: normalizeBlockContent(block.content),
+    }));
+  } catch (error) {
+    console.error('Error fetching all blocks:', error);
+    throw error;
+  }
 };
 
 export const getBlocksByProjectId = async (projectId: string): Promise<StudioBlock[]> => {
   const query = `
     query GetBlocks($projectId: uuid!) {
-      Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}, order_by: {block_index: asc}) {
+      Voice_Studio_blocks(where: { project_id: { _eq: $projectId } }, order_by: { block_index: asc }) {
         id
         project_id
         block_index
@@ -176,64 +204,65 @@ export const getBlocksByProjectId = async (projectId: string): Promise<StudioBlo
       }
     }
   `;
-  const response = await fetchGraphQL<{ Voice_Studio_blocks: any[] }>(query, { projectId });
-  if (response.errors) throw new Error(response.errors[0].message);
 
-  const blocks = response.data?.Voice_Studio_blocks || [];
+  try {
+    const response = await fetchGraphQL<{ Voice_Studio_blocks: any[] }>(query, { projectId });
+    
+    if (response.errors) {
+      console.error('GraphQL errors:', response.errors);
+      throw new Error(response.errors[0]?.message || 'Unknown GraphQL error');
+    }
 
-  // Wrap the plain text content from the DB into an OutputData object for the frontend
-  return blocks.map(block => {
-    const plainText = block.content || '';
-    return {
+    if (!response.data) {
+      throw new Error('No data received from GraphQL');
+    }
+
+    return response.data.Voice_Studio_blocks.map((block: any) => ({
       ...block,
-      content: {
-        time: new Date(block.created_at).getTime() || Date.now(),
-        blocks: [{
-          id: block.id,
-          type: 'paragraph',
-          data: { text: plainText }
-        }],
-        version: "2.28.2"
-      },
-    };
-  });
+      content: normalizeBlockContent(block.content),
+    }));
+  } catch (error) {
+    console.error('Error fetching blocks by project ID:', error);
+    throw error;
+  }
 };
 
 export const upsertBlock = async (block: StudioBlock) => {
-  // 🚨 FIX: Filter all frontend-specific properties that cause a "field not found" error.
-  const { 
-    voice, 
-    isArabic, 
-    audioUrl, 
-    duration, 
-    isGenerating, 
-    job_id, 
-    trimStart, 
-    trimEnd, 
-    ...blockToInsert 
-  } = block;
+  // Extract plain text from the content object
+  const plainText = block.content?.blocks?.map((b: any) => b.data.text || '').join('\n') || '';
 
-  // Extract plain text from the content object to be stored in the DB
-  const plainText = blockToInsert.content?.blocks?.map((b: any) => b.data.text || '').join('\n') || '';
-
-  const finalBlock = {
-    ...blockToInsert,
-    content: plainText,
+  // Prepare data for the local TTS segment creation API
+  const localTtsPayload = {
+    project_id: block.project_id,
+    user_id: "7ac72fd8-0127-451d-b177-128c0f55e7e7", // Default user ID as specified
+    text: plainText,
+    voice: block.voice || "ar-TN-ReemNeural",
   };
 
-  const mutation = `
-    mutation UpsertBlock($block: Voice_Studio_blocks_insert_input!) {
-      insert_Voice_Studio_blocks_one(object: $block, on_conflict: {constraint: blocks_pkey, update_columns: [content, block_index, s3_url]}) {
-        id
-      }
-    }
-  `;
+  try {
+    // Send to local Next.js API which forwards to external TTS service
+    try {
+      const ttsResponse = await fetch('/api/tts/generate-segment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localTtsPayload),
+      });
 
-  const variables = { block: finalBlock };
-  
-  const response = await fetchGraphQL(mutation, variables);
-  if (response.errors) throw new Error(response.errors[0].message);
-  return response.data;
+      if (!ttsResponse.ok) {
+        const errText = await ttsResponse.text().catch(() => '');
+        console.warn(`TTS job creation warning: ${ttsResponse.status} ${ttsResponse.statusText} ${errText}`);
+      } else {
+        console.log('TTS job created via local API');
+      }
+    } catch (ttsError) {
+      console.warn('Local TTS API call failed or was blocked:', ttsError);
+    }
+    // Do not perform manual GraphQL save; backend handles persistence
+    return { success: true };
+  } catch (error) {
+    console.error('Error in upsertBlock:', error);
+    throw error;
+  }
 };
 
 
@@ -252,33 +281,50 @@ export const deleteBlock = async (blockId: string): Promise<{ id: string }> => {
   return response.data.delete_Voice_Studio_blocks_by_pk;
 };
 
+// Safer deletion by project_id + block_index (handles local/remote ID mismatch)
+export const deleteBlockByIndex = async (projectId: string, blockIndex: string): Promise<number> => {
+  const mutation = `
+    mutation DeleteBlockByIndex($projectId: uuid!, $blockIndex: String!) {
+      delete_Voice_Studio_blocks(where: { project_id: { _eq: $projectId }, block_index: { _eq: $blockIndex } }) {
+        affected_rows
+      }
+    }
+  `;
+  const variables = { projectId, blockIndex };
+  const response = await fetchGraphQL<{ delete_Voice_Studio_blocks: { affected_rows: number } }>(mutation, variables);
+  if (response.errors) throw new Error(response.errors[0].message);
+  const affected = response.data?.delete_Voice_Studio_blocks?.affected_rows ?? 0;
+  if (affected === 0) throw new Error("Block not found or could not be deleted.");
+  return affected;
+};
+
 // --- Subscription Function ---
 
-export const subscribeToBlocks = (projectId: string) => {
-    if (!HASURA_GRAPHQL_URL || !HASURA_ADMIN_SECRET) {
-        throw new Error("Hasura environment variables are not configured.");
-    }
+export const subscribeToBlocks = (projectId: string, callback: (blocks: StudioBlock[]) => void) => {
+  if (!HASURA_GRAPHQL_URL || !HASURA_ADMIN_SECRET) {
+    throw new Error("Hasura environment variables are not configured");
+  }
 
-    const wsUrl = HASURA_GRAPHQL_URL.replace(/^http/, 'ws');
-
-    const subscriptionClient = new SubscriptionClient(wsUrl, {
-        reconnect: true,
-        connectionParams: {
-            headers: {
-                'x-hasura-admin-secret': HASURA_ADMIN_SECRET,
-            },
-        },
-    });
+  const wsUrl = HASURA_GRAPHQL_URL.replace('http', 'ws');
+  
+  const subscriptionClient = new SubscriptionClient(wsUrl, {
+    reconnect: true,
+    connectionParams: {
+      headers: {
+        'x-hasura-admin-secret': HASURA_ADMIN_SECRET,
+      },
+    },
+  });
 
     const subscriptionQuery = `
-        subscription StreamBlocks($projectId: uuid!) {
+        subscription GetBlocks($projectId: uuid!) {
             Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}, order_by: {block_index: asc}) {
-                id
-                project_id
                 block_index
                 content
                 s3_url
                 created_at
+                id
+                project_id
             }
         }
     `;

@@ -1,7 +1,7 @@
 // src/components/Timeline.tsx
 'use client';
 
-import { TTSCardData } from '@/lib/types';
+import { StudioBlock } from '@/lib/types';
 import { Play, Pause, ZoomIn, ZoomOut } from 'lucide-react';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
@@ -54,8 +54,8 @@ const formatTime = (time: number) => {
 };
 
 interface TimelineProps {
-  cards: TTSCardData[];
-  onCardsUpdate?: (cards: TTSCardData[]) => void; // لتحديث الكروت من المكون الأب
+  cards: StudioBlock[];
+  onCardsUpdate?: (cards: StudioBlock[]) => void; // لتحديث الكروت من المكون الأب
 }
 
 export default function Timeline({ cards, onCardsUpdate }: TimelineProps) {
@@ -73,7 +73,13 @@ export default function Timeline({ cards, onCardsUpdate }: TimelineProps) {
     const waveformWrapperRef = useRef<HTMLDivElement>(null);
     const animationFrameRef = useRef<number>();
     
-    const audioSegments = useMemo(() => cards.filter(c => c.audioUrl && typeof c.duration === 'number' && c.duration > 0), [cards]);
+    const audioSegments = useMemo(() => cards.filter(c => 
+        c.audioUrl && 
+        typeof c.audioUrl === 'string' && 
+        c.audioUrl.trim() !== '' &&
+        typeof c.duration === 'number' && 
+        c.duration > 0
+    ), [cards]);
 
     useEffect(() => {
         const total = audioSegments.reduce((sum, card) => sum + (card.duration || 0), 0);

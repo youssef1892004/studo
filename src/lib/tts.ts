@@ -1,12 +1,20 @@
 // src/lib/tts.ts (Modified uploadAudioSegment function)
 import { Voice } from './types';
 
-export async function fetchVoices(): Promise<Voice[]> {
-  const response = await fetch('/api/voices');
-  if (!response.ok) {
-    throw new Error('Failed to fetch voices');
+export async function fetchVoices(signal?: AbortSignal): Promise<Voice[]> {
+  try {
+    const response = await fetch('/api/voices', { cache: 'no-store', signal });
+    if (!response.ok) {
+      throw new Error('Failed to fetch voices');
+    }
+    return response.json();
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      // Navigation or component unmount aborted the request; return empty list silently.
+      return [];
+    }
+    throw err;
   }
-  return response.json();
 }
 
 export async function generateSpeech(text: string, voice: string): Promise<Blob> {

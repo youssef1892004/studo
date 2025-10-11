@@ -3,18 +3,15 @@ import MobileBlocker from '@/components/MobileBlocker';
 import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import dynamic from 'next/dynamic';
 import Script from 'next/script';
-// [NEW] استيراد Toaster
-import { Toaster } from 'react-hot-toast';
+import ClientLayout from '@/components/ClientLayout';
 
 
 const cairo = Cairo({ subsets: ["arabic"] });
 
 // SEO Metadata Enhancement
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'),
   title: {
     default: "AI Voice Studio | تحويل النص إلى كلام عربي بالذكاء الاصطناعي",
     template: "%s | AI Voice Studio",
@@ -72,10 +69,6 @@ export const metadata: Metadata = {
   },
 };
 
-const DynamicNavbar = dynamic(() => import('@/components/Navbar'), { 
-    ssr: false,
-});
-
 
 export default function RootLayout({
   children,
@@ -87,19 +80,9 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <body className={cairo.className}>
         <MobileBlocker />
-        <ThemeProvider>
-          <AuthProvider>
-              <DynamicNavbar />
-              {children}
-              {/* [MODIFIED] تم تغيير الموضع إلى "top-right" مع إزاحة 60px */}
-              <Toaster 
-                position="top-left" 
-                containerStyle={{ 
-                  top: 60, // إزاحة 60 بكسل من الأعلى
-                }} 
-              />
-          </AuthProvider>
-        </ThemeProvider>
+        <ClientLayout>
+          {children}
+        </ClientLayout>
         {/* Umami Analytics */}
         <Script 
           src="https://cloud.umami.is/script.js" 

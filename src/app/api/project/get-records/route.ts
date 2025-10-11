@@ -36,7 +36,9 @@ export async function GET(req: Request) {
             Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}, order_by: {created_at: asc}) {
               id
               project_id
+              block_index
               s3_url
+              created_at
             }
           }`;
 
@@ -57,9 +59,18 @@ export async function GET(req: Request) {
 
         const records = data.data.Voice_Studio_blocks;
 
+        // 1.1 De-duplicate by block_index: keep latest by created_at
+        // Query is ordered asc by created_at, so last seen per block_index is the latest
+        const latestByIndexMap = new Map<string, any>();
+        for (const rec of records) {
+            const key = rec.block_index || rec.id; // fallback to id if block_index missing
+            latestByIndexMap.set(key, rec);
+        }
+        const dedupedRecords = Array.from(latestByIndexMap.values());
+
         // 2. Generate pre-signed URLs for each record
         const recordsWithPlayableLinks = await Promise.all(
-            records.map(async (record: { id: string; project_id: string; s3_url: string }) => {
+            dedupedRecords.map(async (record: { id: string; project_id: string; s3_url: string }) => {
                 try {
                     if (!record.s3_url) {
                         return { ...record, s3_url: null, error: 'No S3 URL found for this block.' };

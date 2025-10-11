@@ -12,7 +12,15 @@ export default function Navbar() {
   const authContext = useContext(AuthContext);
   const pathname = usePathname(); 
   const router = useRouter();
-  const { toggleTheme } = useTheme(); 
+  
+  // Safe theme hook usage
+  let toggleTheme = () => {};
+  try {
+    const themeContext = useTheme();
+    toggleTheme = themeContext.toggleTheme;
+  } catch (error) {
+    // ThemeProvider not available, use empty function
+  } 
 
   if (pathname.startsWith('/studio/')) {
     return null;

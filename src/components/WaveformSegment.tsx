@@ -47,8 +47,17 @@ const loadAndGenerateWaveform = async () => {
   try {
     console.log("🎵 بدء تحميل الموجة لـ:", audioUrl);
 
-    if (!audioUrl || typeof audioUrl !== "string") {
+    // ✅ التحقق من صحة الرابط
+    if (!audioUrl || typeof audioUrl !== "string" || audioUrl.trim() === "") {
       console.warn("❗ رابط الصوت غير صالح:", audioUrl);
+      setIsLoaded(true); // عرض حالة فارغة بدلاً من التحميل اللانهائي
+      return;
+    }
+
+    // ✅ التحقق من صحة تنسيق الرابط
+    if (!audioUrl.startsWith("blob:") && !audioUrl.startsWith("http://") && !audioUrl.startsWith("https://")) {
+      console.warn("❗ تنسيق رابط الصوت غير مدعوم:", audioUrl);
+      setIsLoaded(true);
       return;
     }
 
@@ -58,12 +67,23 @@ const loadAndGenerateWaveform = async () => {
     if (audioUrl.startsWith("blob:")) {
       console.log("📦 جارٍ قراءة blob مباشرة...");
       const response = await fetch(audioUrl);
+      if (!response.ok) {
+        throw new Error(`فشل قراءة blob: ${response.status} ${response.statusText}`);
+      }
       arrayBuffer = await response.arrayBuffer();
     } else {
       // 🔗 روابط Wasabi أو سيرفر
+      console.log("🌐 جارٍ تحميل من الخادم...");
       const response = await fetch(audioUrl);
-      if (!response.ok) throw new Error("فشل تحميل الصوت");
+      if (!response.ok) {
+        throw new Error(`فشل تحميل الصوت: ${response.status} ${response.statusText}`);
+      }
       arrayBuffer = await response.arrayBuffer();
+    }
+
+    // ✅ التحقق من وجود بيانات
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      throw new Error("ملف الصوت فارغ أو تالف");
     }
 
     // 🎧 إنشاء AudioContext
@@ -106,6 +126,22 @@ const loadAndGenerateWaveform = async () => {
     setIsLoaded(true);
   } catch (error) {
     console.error("❌ خطأ في توليد الموجة:", error);
+    
+    // ✅ تحديد نوع الخطأ وإظهار رسالة مناسبة
+    let errorMessage = "خطأ غير معروف";
+    if (error instanceof Error) {
+      if (error.message.includes("Failed to fetch") || error.message.includes("فشل تحميل")) {
+        errorMessage = "فشل في تحميل الملف الصوتي - تحقق من الاتصال بالإنترنت";
+      } else if (error.message.includes("decode")) {
+        errorMessage = "تنسيق الملف الصوتي غير مدعوم";
+      } else if (error.message.includes("فارغ") || error.message.includes("تالف")) {
+        errorMessage = "الملف الصوتي تالف أو فارغ";
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    console.warn("🔄 استخدام موجة احتياطية بسبب:", errorMessage);
 
     // 🎛️ موجة احتياطية عشوائية
     const fallbackData = Array.from({ length: 300 }, (_, i) => {

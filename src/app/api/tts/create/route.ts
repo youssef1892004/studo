@@ -30,7 +30,10 @@ export async function POST(request: NextRequest) {
     const { project_id, user_id, blocks } = requestBody;
 
     if (!blocks || !Array.isArray(blocks)) {
-      return NextResponse.json({ error: 'The 'blocks' array is missing or invalid in the request body.' }, { status: 400 });
+      return NextResponse.json(
+        { error: "The 'blocks' array is missing or invalid in the request body." },
+        { status: 400 }
+      );
     }
 
     // For now, we just log the project and user IDs.

@@ -16,7 +16,7 @@ export interface StudioBlock {
   // Backend fields from Voice_Studio_blocks
   id: string;
   project_id: string;
-  block_index: number;
+  block_index: string; // Changed to string for database compatibility
   content: OutputData;
   s3_url?: string;
   created_at: string;
@@ -30,6 +30,8 @@ export interface StudioBlock {
   isArabic?: boolean;
   trimStart?: number;
   trimEnd?: number;
+  // Require explicit user selection before generation
+  voiceSelected?: boolean;
 }
 
 export interface User {
@@ -51,6 +53,6 @@ export interface Project {
   id: string;
   name: string;
   description: string;
-  crated_at: string;
+  created_at: string;
   user_id: string;
 }

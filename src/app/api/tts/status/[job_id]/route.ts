@@ -21,10 +21,9 @@ async function getAccessToken() {
     return data.access_token;
 }
 
-// --- === تم إصلاح المشكلة هنا === ---
-// تم تصحيح تعريف "params"
-export async function GET(request: NextRequest, { params }: { params: { job_id: string } }) {
-    const { job_id } = params;
+// Next.js 15 typed routes expect params to be a Promise in the context
+export async function GET(request: NextRequest, context: { params: Promise<{ job_id: string }> }) {
+    const { job_id } = await context.params;
     if (!job_id) {
         return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
     }

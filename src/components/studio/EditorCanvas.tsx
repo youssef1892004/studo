@@ -18,11 +18,12 @@ interface EditorCanvasProps {
     addCard: () => void;
     error: string | null;
     pageMessage: string | null;
+    projectId: string; // إضافة projectId لتجديد روابط الصوت
 }
 
 export default function EditorCanvas({ 
     cards, setCards, voices, activeCardId, setActiveCardId, 
-    updateCard, removeCard, addCard, error, pageMessage
+    updateCard, removeCard, addCard, error, pageMessage, projectId
 }: EditorCanvasProps) {
 
     const sensors = useSensors(
@@ -61,7 +62,8 @@ export default function EditorCanvas({
                                     onUpdate={updateCard} 
                                     onRemove={removeCard} 
                                     isActive={activeCardId === card.id} 
-                                    onClick={setActiveCardId} 
+                                    onClick={setActiveCardId}
+                                    projectId={projectId}
                                 />
                             ))}
                         </SortableContext>
@@ -72,7 +74,11 @@ export default function EditorCanvas({
                         </div>
                     )}
                     <div className="flex justify-center mt-4 p-4">
-                        <button onClick={addCard} className="p-3 text-gray-400 hover:text-blue-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        <button 
+                            onClick={addCard} 
+                            className="p-3 text-gray-400 hover:text-blue-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            aria-label="Add new text block"
+                        >
                             <Plus size={24} />
                         </button>
                     </div>
