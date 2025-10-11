@@ -264,8 +264,26 @@ export default function StudioProjectPage() {
                 try {
                   const fetchedBlocks = Array.isArray(result.data?.Voice_Studio_blocks) ? result.data.Voice_Studio_blocks : [];
 
-                // لا تُسقط أي سجلات من الاشتراك؛ استخدم النتائج كما هي دون اختزال
-                const filteredBlocks = fetchedBlocks;
+                // CRITICAL FIX: تطبيق منطق التصفية وإزالة التكرار (Deduplication)
+                // بدلاً من استخدام: const filteredBlocks = fetchedBlocks;
+                const filteredBlocks = fetchedBlocks
+                    .filter((block: any) => block.content !== 'merged_blocks')
+                    .reduce((acc: any[], current: any) => {
+                      const existingIndex = acc.findIndex((item: any) => 
+                        item.block_index === current.block_index && 
+                        item.block_index !== 'merged_blocks'
+                      );
+                      if (existingIndex !== -1) {
+                        const existingDate = new Date(acc[existingIndex].created_at);
+                        const currentDate = new Date(current.created_at);
+                        if (currentDate > existingDate) {
+                          acc[existingIndex] = current;
+                        }
+                      } else {
+                        acc.push(current);
+                      }
+                      return acc;
+                    }, []);
 
                 // اجلب أحدث سجلات الصوت قبل بناء البطاقات لضمان وجود روابط محدثة
                 await refetchBlocks();
@@ -395,6 +413,67 @@ export default function StudioProjectPage() {
       };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authContext?.user?.id, projectId]); 
+
+    useEffect(() => {
+        // Don't run if blocks are still being processed or if there are no cards
+        if (isBlocksProcessing || cards.length === 0) {
+            return;
+        }
+
+        const calculateMissingDurations = async () => {
+            const cardsToUpdate = cards.filter(card => card.audioUrl && !card.duration);
+
+            if (cardsToUpdate.length === 0) {
+                return;
+            }
+
+            let hasUpdates = false;
+            const updatedCards = await Promise.all(
+                cards.map(async (card) => {
+                    if (card.audioUrl && !card.duration) {
+                        try {
+                            const audio = new Audio();
+                            audio.crossOrigin = "anonymous";
+                            audio.src = card.audioUrl;
+                            
+                            const duration = await new Promise<number | null>((resolve) => {
+                                const timeout = setTimeout(() => {
+                                    console.warn(`Timeout calculating duration for ${card.id}`);
+                                    resolve(null);
+                                }, 7000);
+
+                                audio.addEventListener('loadedmetadata', () => {
+                                    clearTimeout(timeout);
+                                    resolve(audio.duration);
+                                });
+
+                                audio.addEventListener('error', (e) => {
+                                    clearTimeout(timeout);
+                                    console.warn(`Audio metadata load error for block ${card.id}:`, e);
+                                    resolve(null);
+                                });
+                            });
+
+                            if (duration) {
+                                hasUpdates = true;
+                                return { ...card, duration };
+                            }
+                        } catch (error) {
+                            console.warn(`Could not calculate duration for block ${card.id}:`, error);
+                        }
+                    }
+                    return card;
+                })
+            );
+
+            if (hasUpdates) {
+                setCards(updatedCards);
+            }
+        };
+
+        calculateMissingDurations();
+
+    }, [cards, isBlocksProcessing]);
 
     const addCard = async () => {
         const newCardId = uuidv4();
@@ -543,7 +622,21 @@ export default function StudioProjectPage() {
         setIsGenerating(true);
         setError(null);
 
-        // لم يعد هناك حاجة لفحص إضافي هنا لأننا تحققنا عالميًا من الأصوات قبل البدء
+        // CRITICAL FIX 1: ضمان حفظ جميع الكتل (Upsert) قبل البدء
+        // هذا يحل مشكلة الكتل الجديدة/التي لم تُحفظ بعد وتكرارها أو اختلاطها لاحقًا
+        try {
+             const persistenceToastId = toast.loading("جاري تأمين وحفظ الكتل...");
+             for (const card of cardsToGenerate) {
+                // Upsert the block to ensure it exists in Hasura with the latest content/voice
+                await upsertBlock(card); 
+             }
+             toast.success("تم تأمين الكتل بنجاح.", { id: persistenceToastId });
+        } catch (err) {
+             console.error("Failed to upsert blocks before generation:", err);
+             toast.error("فشل تأمين الكتل. يرجى المحاولة مرة أخرى.");
+             setIsGenerating(false);
+             return;
+        }
 
         // علّم كل البطاقات قيد التوليد بدون إنشاء وظائف منفصلة لكل واحدة
         for (const card of cardsToGenerate) {
@@ -553,14 +646,23 @@ export default function StudioProjectPage() {
         const loadingToastId = toast.loading(`بدء التوليد لمجموع ${cardsToGenerate.length} كتل...`);
 
         try {
-            // اجمع كل الكتل في مصفوفة واحدة blocks بدون block_id
-            const blocksPayload = cardsToGenerate.map(card => ({
-                text: card.content.blocks.map(b => b.data.text).join(' ').trim(),
-                wait_after_ms: 500,
-                provider: 'ghaymah',
-                voice: card.voice,
-                arabic: !!card.isArabic,
-            }));
+            // اجمع كل الكتل في مصفوفة واحدة blocks
+            const blocksPayload = cardsToGenerate.map(card => {
+                // CRITICAL FIX 2: استخلاص Provider Name ديناميكياً
+                const selectedVoice = voices.find(v => v.name === card.voice);
+                const providerName = selectedVoice?.provider || 'ghaymah'; // Fallback to ghaymah
+
+                return {
+                    text: card.content.blocks.map(b => b.data.text).join(' ').trim(),
+                    wait_after_ms: 500,
+                    // CRITICAL FIX 3: استخدام Provider الديناميكي بدلاً من الثابت
+                    provider: providerName, 
+                    voice: card.voice,
+                    arabic: !!card.isArabic,
+                    // CRITICAL FIX 4: تمرير block_id للربط في الخلفية 
+                    block_id: card.id, 
+                }
+            });
 
             // أرسل طلب HTTP واحد فقط إلى /api/tts/create (نفس الأصل)
             // استخدم مسار نسبي لتجنب مشاكل المنافذ أو الأصل أثناء التطوير
