@@ -64,14 +64,7 @@ export default function RightSidebar({
   setVoiceMode
 }: RightSidebarProps) {
 
-  const proVoices: Voice[] = [
-    { name: '0', characterName: 'كريم', gender: 'Male', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
-    { name: '1', characterName: 'طارق', gender: 'Male', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
-    { name: '2', characterName: 'ليلى', gender: 'Female', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
-    { name: '3', characterName: 'نور', gender: 'Female', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO' },
-  ];
-
-  const voicesToDisplay = voiceMode === 'Pro' ? proVoices : voices;
+  const voicesToDisplay = voices;
   
   return (
     <aside 
@@ -184,13 +177,13 @@ export default function RightSidebar({
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="sticky top-0 bg-white dark:bg-gray-800 px-4 py-2 border-b border-gray-100 dark:border-gray-700 z-10 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {voiceMode === 'Pro' ? 'Pro Arabic Voices' : 'Free Voices'} ({voicesToDisplay.length})
+              {voiceMode === 'Pro' ? 'Pro Arabic Voices' : 'Free Voices'} ({voices.length})
             </h3>
           </div>
 
           <div className="px-1 space-y-1 pb-4">
-            {voicesToDisplay.length > 0 ? (
-              voicesToDisplay.map((voice) => (
+            {voices.length > 0 ? (
+              voices.map((voice) => (
                 <div 
                   key={voice.name} 
                   onClick={() => onApplyVoice(voice.name)}

@@ -24,6 +24,13 @@ import CenteredLoader from '@/components/CenteredLoader';
 
 const PRO_VOICES_IDS = ['0', '1', '2', '3'];
 
+const proVoices: (Voice & { isPro?: boolean })[] = [
+    { name: '0', characterName: 'كريم', gender: 'Male', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO', isPro: true, provider: 'ghaymah' },
+    { name: '1', characterName: 'طارق', gender: 'Male', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO', isPro: true, provider: 'ghaymah' },
+    { name: '2', characterName: 'ليلى', gender: 'Female', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO', isPro: true, provider: 'ghaymah' },
+    { name: '3', characterName: 'نور', gender: 'Female', languageName: 'Arabic', languageCode: 'ar', countryName: 'Pro', countryCode: 'PRO', isPro: true, provider: 'ghaymah' },
+];
+
 export default function StudioProjectPage() {
     const [projectTitle, setProjectTitle] = useState("Untitled Project");
     const [projectDescription, setProjectDescription] = useState("");
@@ -127,7 +134,11 @@ export default function StudioProjectPage() {
             
             setIsCriticalLoading(false);
 
-            setVoices(fetchedVoices.map(v => ({ ...v, isPro: PRO_VOICES_IDS.includes(v.name) })));
+            const allVoices = [
+                ...proVoices,
+                ...fetchedVoices.map(v => ({ ...v, isPro: false }))
+            ];
+            setVoices(allVoices);
             setProjectTitle(projectData.name || "Untitled Project");
             setProjectDescription(projectData.description || "");
 

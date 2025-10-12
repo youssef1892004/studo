@@ -9,6 +9,7 @@ export interface Voice {
   countryName: string;
   countryCode: string;
   characterName: string;
+  provider?: string;
 }
 
 // Represents a single editor card/block in the studio UI
@@ -20,7 +21,7 @@ export interface StudioBlock {
   content: OutputData;
   s3_url?: string;
   created_at: string;
-
+  
   // Frontend-only state
   voice: string;
   audioUrl?: string;      // Temporary URL for client-side playback
