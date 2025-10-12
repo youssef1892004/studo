@@ -10,7 +10,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { fetchVoices } from '@/lib/tts';
 import { Voice, StudioBlock } from '@/lib/types';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, List } from 'lucide-react';
 import { AuthContext } from '@/contexts/AuthContext';
 import { getProjectById, updateProject, getBlocksByProjectId, upsertBlock, deleteBlockByIndex, deleteBlock, subscribeToBlocks } from '@/lib/graphql';
 import getMP3Duration from 'get-mp3-duration';
@@ -40,18 +40,19 @@ export default function StudioProjectPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isCriticalLoading, setIsCriticalLoading] = useState(true);
     const [isBlocksProcessing, setIsBlocksProcessing] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     // مفتاح لإجبار إعادة الرسم بعد تحديث البيانات الصوتية
     const [renderKey, setRenderKey] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [pageMessage, setPageMessage] = useState<string | null>(null);
     
     const isInitialLoad = useRef(true);
-    
-    const [voiceMode, setVoiceMode] = useState<'Free' | 'Pro'>('Free'); 
 
     const [languageFilter, setLanguageFilter] = useState('all');
     const [countryFilter, setCountryFilter] = useState('all');
     const [genderFilter, setGenderFilter] = useState('all');
+    const [providerFilter, setProviderFilter] = useState('all');
+    const [enableTashkeel, setEnableTashkeel] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
     const pollingIntervals = useRef<Record<string, NodeJS.Timeout>>({});
@@ -67,6 +68,10 @@ export default function StudioProjectPage() {
     if (!authContext) {
         throw new Error('AuthContext must be used within an AuthProvider');
     }
+
+    const toggleSidebar = () => {
+        setIsSidebarOpen(!isSidebarOpen);
+    };
 
     // Auto-save for project name and description
     useEffect(() => {
@@ -488,25 +493,22 @@ export default function StudioProjectPage() {
 
     const addCard = async () => {
         const newCardId = uuidv4();
-        const isProMode = voiceMode === 'Pro';
-        const defaultVoice = isProMode 
-            ? (voices.find(v => v.isPro)?.name || "0") 
-            : (voices.find(v => !v.isPro)?.name || "ar-EG-ShakirNeural"); 
+        const defaultVoice = voices.find(v => !v.isPro)?.name || "ar-EG-ShakirNeural"; 
 
         const newCard: StudioBlock = {
             id: newCardId, 
             project_id: projectId,
-            block_index: cards.length.toString(), // Convert to string for database compatibility
+            block_index: cards.length.toString(),
             content: { 
                 time: Date.now(), 
                 blocks: [{ id: uuidv4(), type: 'paragraph', data: { text: '' } }],
                 version: "2.28.2"
             },
-            s3_url: '', // FIX: Provide a default value for the non-nullable column
+            s3_url: '', 
             created_at: new Date().toISOString(),
-            voice: defaultVoice, // Frontend-only field, will be filtered out in upsertBlock
+            voice: defaultVoice, 
             isGenerating: false,
-            isArabic: isProMode, 
+            isArabic: enableTashkeel, 
             voiceSelected: false,
         };
 
@@ -612,7 +614,11 @@ export default function StudioProjectPage() {
         }
     };
     
+    const isSubmitting = useRef(false);
+
     const handleGenerate = async () => {
+        if (isSubmitting.current) return;
+        isSubmitting.current = true;
         if (!authContext.user) return;
         // تحقق أولاً أن كل block لديه صوت محدد قبل أي استدعاء API
         const hasMissingVoiceGlobal = cards.some(b => !b.voice || b.voice.trim() === "");
@@ -669,7 +675,7 @@ export default function StudioProjectPage() {
                     // CRITICAL FIX 3: استخدام Provider الديناميكي بدلاً من الثابت
                     provider: providerName, 
                     voice: card.voice,
-                    arabic: !!card.isArabic,
+                    arabic: enableTashkeel,
                     // CRITICAL FIX 4: تمرير block_id للربط في الخلفية 
                     block_id: card.id, 
                 }
@@ -765,9 +771,9 @@ export default function StudioProjectPage() {
             for (const card of cardsToGenerate) {
                 updateCard(card.id, { isGenerating: false });
             }
-            toast.error(err.message || 'حدث خطأ أثناء التوليد والدمج.');
         } finally {
             setIsGenerating(false);
+            isSubmitting.current = false;
         }
     };
   
@@ -818,12 +824,13 @@ export default function StudioProjectPage() {
   
     const languages = Array.from(new Map(voices.map(v => [v.languageCode, { code: v.languageCode, name: v.languageName }])).values());
     const countries = Array.from(new Map(voices.map(v => [v.countryCode, { code: v.countryCode, name: v.countryName }])).values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-  
+    const providers = Array.from(new Set(voices.map(v => v.provider))).filter(p => p);
+
     const filteredVoices = voices
       .filter(voice => (languageFilter === 'all' || voice.languageCode === languageFilter))
       .filter(voice => (countryFilter === 'all' || voice.countryCode === countryFilter))
       .filter(voice => (genderFilter === 'all' || voice.gender === genderFilter))
-      .filter(voice => (voiceMode === 'Pro' ? voice.isPro : !voice.isPro))
+      .filter(voice => (providerFilter === 'all' || voice.provider === providerFilter))
       .filter(voice => {
           if (searchTerm.trim() === '') return true;
           const lowerSearchTerm = searchTerm.toLowerCase();
@@ -849,7 +856,7 @@ export default function StudioProjectPage() {
   
     return (
         <div key={renderKey} className="flex flex-col h-screen bg-white dark:bg-gray-900 font-sans relative">
-            <div className="flex-shrink-0 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="flex-shrink-0 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm flex items-center justify-between px-4">
             <ProjectHeader 
                 projectTitle={projectTitle}
                 setProjectTitle={setProjectTitle}
@@ -860,6 +867,9 @@ export default function StudioProjectPage() {
                 handleGenerate={handleGenerate}
                 handleDownloadAll={handleDownloadAll}
             />
+            <button onClick={toggleSidebar} className="p-2 text-gray-600 dark:text-gray-300">
+                <List size={20} />
+            </button>
             </div>
 
              <div className="flex flex-1 overflow-hidden">
@@ -881,25 +891,31 @@ export default function StudioProjectPage() {
 
                 </main>
                 
-                <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
-                     <RightSidebar
-                        voices={filteredVoices}
-                        onApplyVoice={handleApplyVoice}
-                        activeVoiceName={activeCard?.voice}
-                        languages={languages}
-                        countries={countries}
-                        languageFilter={languageFilter}
-                        setLanguageFilter={setLanguageFilter}
-                        countryFilter={countryFilter}
-                        setCountryFilter={setCountryFilter}
-                        genderFilter={genderFilter}
-                        setGenderFilter={setGenderFilter}
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
-                        voiceMode={voiceMode}
-                        setVoiceMode={setVoiceMode}
-                    />
-                </div>
+                {isSidebarOpen && (
+                    <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+                        <RightSidebar
+                            voices={filteredVoices}
+                            onApplyVoice={handleApplyVoice}
+                            activeVoiceName={activeCard?.voice}
+                            isOpen={isSidebarOpen}
+                            onToggle={toggleSidebar}
+                            languages={languages}
+                            countries={countries}
+                            languageFilter={languageFilter}
+                            setLanguageFilter={setLanguageFilter}
+                            countryFilter={countryFilter}
+                            setCountryFilter={setCountryFilter}
+                            genderFilter={genderFilter}
+                            setGenderFilter={setGenderFilter}
+                            providerFilter={providerFilter}
+                            setProviderFilter={setProviderFilter}
+                            providers={providers as string[]}
+                            enableTashkeel={enableTashkeel}
+                            setEnableTashkeel={setEnableTashkeel}
+                            searchTerm={searchTerm}
+                            setSearchTerm={setSearchTerm}
+                         />                    </div>
+                )}
             </div>
 
             {cards.length > 0 && (

@@ -94,11 +94,13 @@ AI Voice Studio هو تطبيق ويب مبني على `Next.js` لتوليد ا
 
 ## 6) المتغيرات البيئية
 
-ضع هذه القيم في `/.env.local` (أو بيئة الاستضافة):
+ضع هذه القيم في `/.env.local` (أو بيئة الاستضافة). المتغيرات التي تبدأ بـ `NEXT_PUBLIC_` يتم تمريرها إلى الواجهة الأمامية (المتصفح) وهي ضرورية للتشغيل السليم.
 
 - Hasura:
-  - `HASURA_GRAPHQL_URL`: عنوان واجهة GraphQL
-  - `HASURA_ADMIN_SECRET`: السر الإداري للوصول الآمن
+  - `NEXT_PUBLIC_HASURA_GRAPHQL_URL`: **(مهم)** عنوان واجهة GraphQL الذي يستخدمه العميل. يجب أن يبدأ بـ `NEXT_PUBLIC_`.
+  - `NEXT_PUBLIC_HASURA_ADMIN_SECRET`: **(مهم)** السر الإداري للوصول الآمن من العميل.
+  - `HASURA_GRAPHQL_URL`: عنوان الواجهة للاستخدام من جانب الخادم (server-side).
+  - `HASURA_ADMIN_SECRET`: السر الإداري للاستخدام من جانب الخادم.
 - S3/Wasabi:
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`

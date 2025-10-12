@@ -38,7 +38,7 @@ function normalizeBlockContent(raw: any) {
 
 async function fetchGraphQL<T>(query: string, variables: Record<string, any>): Promise<GraphQLResponse<T>> {
   if (!HASURA_GRAPHQL_URL || !HASURA_ADMIN_SECRET) {
-    throw new Error("Hasura environment variables (NEXT_PUBLIC_...) are not configured in .env.local. Please check the file and restart the server.");
+    throw new Error("Required Hasura environment variables (NEXT_PUBLIC_HASURA_GRAPHQL_URL, NEXT_PUBLIC_HASURA_ADMIN_SECRET) are not set. Please check your environment variable configuration (.env.local for local development, or your hosting provider settings for production).");
   }
   
   const response = await fetch(HASURA_GRAPHQL_URL, {
