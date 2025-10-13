@@ -122,26 +122,9 @@ export default function RightSidebar({
               </div>
             </div>
 
-            {/* Enable Tashkeel Switch */}
-            <div className="flex items-center justify-between p-4 rounded-lg bg-gray-100 dark:bg-gray-700/50">
-              <label className="block text-sm font-bold text-gray-800 dark:text-gray-100">تفعيل التشكيل</label>
-              <button
-                onClick={() => setEnableTashkeel(!enableTashkeel)}
-                className={`relative inline-flex items-center h-8 rounded-full w-14 transition-colors duration-300 focus:outline-none ${enableTashkeel ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-              >
-                <span className={`inline-block w-6 h-6 transform bg-white rounded-full transition-transform duration-300 ${enableTashkeel ? 'translate-x-7' : 'translate-x-1'}`} />
-              </button>
-            </div>
+            {/* Enable Tashkeel Switch - REMOVED AS PER USER REQUEST */}
 
-            {/* Gender Filter */}
-            <div className="pt-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
-              <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl space-x-1">
-                <GenderButton label="All" value="all" currentFilter={genderFilter} onClick={setGenderFilter} icon={Users} />
-                <GenderButton label="Male" value="Male" currentFilter={genderFilter} onClick={setGenderFilter} icon={User} />
-                <GenderButton label="Female" value="Female" currentFilter={genderFilter} onClick={setGenderFilter} icon={User} />
-              </div>
-            </div>
+            {/* Gender Filter - REMOVED AS PER USER REQUEST */}
             
             {/* Language Filter */}
             <div>

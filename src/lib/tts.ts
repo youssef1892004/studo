@@ -1,23 +1,25 @@
 // src/lib/tts.ts (Modified uploadAudioSegment function)
 import { Voice } from './types';
 
-const getAbsoluteUrl = (path: string) => {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    ? process.env.NEXT_PUBLIC_APP_URL
-    : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-  return `${baseUrl}${path}`;
+// A robust function to get the correct API path
+const getApiUrl = (path: string) => {
+  // For server-side rendering or if an absolute URL is explicitly defined, use it.
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return `${process.env.NEXT_PUBLIC_APP_URL}${path}`;
+  }
+  // For client-side rendering, relative paths are always safe and correct.
+  return path;
 };
 
 export async function fetchVoices(signal?: AbortSignal): Promise<Voice[]> {
   try {
-    const response = await fetch(getAbsoluteUrl('/api/voices'), { cache: 'no-store', signal });
+    const response = await fetch(getApiUrl('/api/voices'), { cache: 'no-store', signal });
     if (!response.ok) {
       throw new Error('Failed to fetch voices');
     }
     return response.json();
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      // Navigation or component unmount aborted the request; return empty list silently.
       return [];
     }
     throw err;
@@ -25,7 +27,7 @@ export async function fetchVoices(signal?: AbortSignal): Promise<Voice[]> {
 }
 
 export async function generateSpeech(text: string, voice: string): Promise<Blob> {
-  const response = await fetch(getAbsoluteUrl('/api/tts'), {
+  const response = await fetch(getApiUrl('/api/tts'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -40,27 +42,19 @@ export async function generateSpeech(text: string, voice: string): Promise<Blob>
 
   return response.blob();
 }
-// [MODIFIED] وظيفة تحديث لتحميل الصوت إلى S3 عبر مسار API جديد
+
 export async function uploadAudioSegment(audioBlob: Blob, projectId: string): Promise<string> {
-  console.log(`Converting audio blob to data URL for project: ${projectId}`);
-  
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Failed to read blob as data URL.'));
-      }
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('Failed to read blob as data URL.'));
     };
-    reader.onerror = () => {
-      reject(new Error('Error reading blob.'));
-    };
+    reader.onerror = () => reject(new Error('Error reading blob.'));
     reader.readAsDataURL(audioBlob);
   });
   
-  // استدعاء مسار API الجديد للرفع إلى S3 وحفظ الرابط في Hasura
-  const response = await fetch(getAbsoluteUrl('/api/project/upload-audio'), {
+  const response = await fetch(getApiUrl('/api/project/upload-audio'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dataUrl, projectId }),
@@ -72,5 +66,5 @@ export async function uploadAudioSegment(audioBlob: Blob, projectId: string): Pr
   }
 
   const { persistentAudioUrl } = await response.json();
-  return persistentAudioUrl; // إرجاع رابط S3 الدائم
+  return persistentAudioUrl;
 }
