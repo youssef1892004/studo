@@ -56,6 +56,7 @@ export interface Project {
   id: string;
   name: string;
   description: string;
-  created_at: string;
+  crated_at: string;
   user_id: string;
+  blocks_json?: any;
 }

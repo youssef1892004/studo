@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const existing = existingJson?.data?.Voice_Studio_blocks?.[0] || null;
 
     // 2) حدّث إذا كان موجودًا، وإلا قم بإدراج سجل جديد
-    const contentPayload = JSON.stringify({ label: 'merged_blocks', status: existing ? 'updated' : 'created', updated_at: new Date().toISOString() });
+    const contentPayload = { label: 'merged_blocks', status: existing ? 'updated' : 'created', updated_at: new Date().toISOString() };
 
     if (existing?.id) {
       const updateMutation = `

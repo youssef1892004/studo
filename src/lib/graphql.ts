@@ -57,6 +57,42 @@ async function fetchGraphQL<T>(query: string, variables: Record<string, any>): P
   return response.json();
 }
 
+interface ExecuteGraphQLOptions {
+    query: string;
+    variables?: Record<string, any>;
+    headers?: Record<string, string>;
+  }
+  
+export async function executeGraphQL<T>({ query, variables, headers = {} }: ExecuteGraphQLOptions): Promise<GraphQLResponse<T>> {
+    if (!HASURA_GRAPHQL_URL) {
+        throw new Error("Required Hasura environment variable (NEXT_PUBLIC_HASURA_GRAPHQL_URL) is not set.");
+    }
+
+    const defaultHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+
+    // Add admin secret if it's available and no other authorization is provided
+    if (HASURA_ADMIN_SECRET && !headers['Authorization'] && !headers['x-hasura-admin-secret']) {
+        defaultHeaders['x-hasura-admin-secret'] = HASURA_ADMIN_SECRET;
+    }
+
+    const response = await fetch(HASURA_GRAPHQL_URL, {
+        method: 'POST',
+        headers: {
+        ...defaultHeaders,
+        ...headers,
+        },
+        body: JSON.stringify({ query, variables }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Network error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
 
 
 // --- Project Functions ---
@@ -103,6 +139,18 @@ export const insertProject = async (userId: string, name: string, description: s
     return response.data!.insert_Voice_Studio_projects.returning[0];
 };
 
+export const UPDATE_PROJECT_BLOCKS = `
+  mutation UpdateProjectBlocks($id: uuid!, $blocks_json: jsonb!) {
+    update_Voice_Studio_projects_by_pk(
+      pk_columns: {id: $id}, 
+      _set: {blocks_json: $blocks_json}
+    ) {
+      id
+      crated_at 
+    }
+  }
+`;
+
 export const getProjectById = async (projectId: string): Promise<Project | null> => {
     const query = `
       query GetProjectById($id: uuid!) {
@@ -112,6 +160,7 @@ export const getProjectById = async (projectId: string): Promise<Project | null>
           description
           crated_at
           user_id
+          blocks_json
         }
       }
     `;
@@ -119,6 +168,44 @@ export const getProjectById = async (projectId: string): Promise<Project | null>
     if (response.errors) throw new Error(response.errors[0].message);
     return response.data?.Voice_Studio_projects_by_pk || null;
 }
+
+export const DELETE_PROJECT_BLOCKS = `
+  mutation DeleteProjectBlocks($projectId: uuid!) {
+    delete_Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}) {
+      affected_rows
+    }
+  }
+`;
+
+export const UPSERT_PROJECT_BLOCKS = `
+  mutation UpsertProjectBlocks($blocks: [Voice_Studio_blocks_insert_input!]!) {
+    insert_Voice_Studio_blocks(
+      objects: $blocks,
+      on_conflict: {
+        constraint: blocks_pkey,
+        update_columns: [content, s3_url, voice]
+      }
+    ) {
+      affected_rows
+      returning {
+        id
+      }
+    }
+  }
+`;
+
+export const DELETE_UNUSED_BLOCKS = `
+  mutation DeleteUnusedBlocks($projectId: uuid!, $activeBlockIds: [uuid!]!) {
+    delete_Voice_Studio_blocks(
+      where: {
+        project_id: {_eq: $projectId},
+        id: {_nin: $activeBlockIds}
+      }
+    ) {
+      affected_rows
+    }
+  }
+`;
 
 export const updateProject = async (projectId: string, name: string, description: string) => {
     const mutation = `
@@ -128,7 +215,7 @@ export const updateProject = async (projectId: string, name: string, description
             }
         }
     `;
-    const variables = { 
+    const variables = {
         id: projectId, 
         name: name,
         description: description,
@@ -320,7 +407,6 @@ export const subscribeToBlocks = (projectId: string, callback: (blocks: StudioBl
         subscription GetBlocks($projectId: uuid!) {
             Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}, order_by: {block_index: asc}) {
                 block_index
-                content
                 s3_url
                 created_at
                 id
@@ -334,4 +420,3 @@ export const subscribeToBlocks = (projectId: string, callback: (blocks: StudioBl
         variables: { projectId },
     });
 };
-

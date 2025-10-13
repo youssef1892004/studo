@@ -1,9 +1,16 @@
 // src/lib/tts.ts (Modified uploadAudioSegment function)
 import { Voice } from './types';
 
+const getAbsoluteUrl = (path: string) => {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    ? process.env.NEXT_PUBLIC_APP_URL
+    : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  return `${baseUrl}${path}`;
+};
+
 export async function fetchVoices(signal?: AbortSignal): Promise<Voice[]> {
   try {
-    const response = await fetch('/api/voices', { cache: 'no-store', signal });
+    const response = await fetch(getAbsoluteUrl('/api/voices'), { cache: 'no-store', signal });
     if (!response.ok) {
       throw new Error('Failed to fetch voices');
     }
@@ -18,7 +25,7 @@ export async function fetchVoices(signal?: AbortSignal): Promise<Voice[]> {
 }
 
 export async function generateSpeech(text: string, voice: string): Promise<Blob> {
-  const response = await fetch('/api/tts', {
+  const response = await fetch(getAbsoluteUrl('/api/tts'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -53,7 +60,7 @@ export async function uploadAudioSegment(audioBlob: Blob, projectId: string): Pr
   });
   
   // استدعاء مسار API الجديد للرفع إلى S3 وحفظ الرابط في Hasura
-  const response = await fetch('/api/project/upload-audio', {
+  const response = await fetch(getAbsoluteUrl('/api/project/upload-audio'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dataUrl, projectId }),

@@ -1,3 +1,4 @@
+// src/app/api/project/get-records/route.ts
 import { NextResponse } from "next/server";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -27,89 +28,70 @@ export async function GET(req: Request) {
     try {
         const url = new URL(req.url);
         const projectId = url.searchParams.get("projectId");
+
         if (!projectId) {
             return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
         }
 
-        // 1. Fetch records from Hasura using the new schema
-        const query = `query GetBlocksForProject($projectId: uuid!) {
-            Voice_Studio_blocks(where: {project_id: {_eq: $projectId}}, order_by: {created_at: asc}) {
-              id
-              project_id
-              block_index
-              s3_url
-              created_at
+        // 1. Fetch the project and its blocks_json field
+        const query = `
+            query GetProjectById($id: uuid!) {
+                Voice_Studio_projects_by_pk(id: $id) {
+                    blocks_json
+                }
             }
-          }`;
-
+        `;
+        
         const res = await fetch(HASURA_GRAPHQL_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "x-hasura-admin-secret": HASURA_ADMIN_SECRET,
             },
-            body: JSON.stringify({ query, variables: { projectId } }),
+            body: JSON.stringify({ query, variables: { id: projectId } }),
         });
 
-        const data = await res.json();
-        if (data.errors) {
-            console.error("Hasura Error:", data.errors);
-            return NextResponse.json({ error: data.errors }, { status: 500 });
+        const projectData = await res.json();
+        if (projectData.errors) {
+            console.error("Hasura Error fetching project:", projectData.errors);
+            return NextResponse.json({ error: projectData.errors }, { status: 500 });
         }
 
-        const records = data.data.Voice_Studio_blocks;
+        const blocks = projectData.data?.Voice_Studio_projects_by_pk?.blocks_json || [];
 
-        // 1.1 De-duplicate by block_index: keep latest by created_at
-        // Query is ordered asc by created_at, so last seen per block_index is the latest
-        const latestByIndexMap = new Map<string, any>();
-        for (const rec of records) {
-            const key = rec.block_index || rec.id; // fallback to id if block_index missing
-            latestByIndexMap.set(key, rec);
-        }
-        const dedupedRecords = Array.from(latestByIndexMap.values());
+        // 2. Generate pre-signed URLs for any blocks that have an s3_url
+        const blocksWithPlayableLinks = await Promise.all(
+            blocks.map(async (block: any) => {
+                if (!block.s3_url) {
+                    return block; // No s3_url, return block as is
+                }
 
-        // 2. Generate pre-signed URLs for each record
-        const recordsWithPlayableLinks = await Promise.all(
-            dedupedRecords.map(async (record: { id: string; project_id: string; s3_url: string }) => {
                 try {
-                    if (!record.s3_url) {
-                        return { ...record, s3_url: null, error: 'No S3 URL found for this block.' };
-                    }
-
-                    // Extract the object key from the full URL
                     const urlPrefix = `${WASABI_ENDPOINT}/${S3_BUCKET_NAME}/`;
-                    if (!record.s3_url.startsWith(urlPrefix)) {
-                        // If it's already a signed URL or a different format, just return it for now.
-                        // A more robust solution might be needed depending on URL formats.
-                        return { ...record, s3_url: record.s3_url };
+                    if (!block.s3_url.startsWith(urlPrefix)) {
+                        console.warn(`Block ${block.id} s3_url is not a Wasabi URL, returning as is: ${block.s3_url}`);
+                        return { ...block, audioUrl: block.s3_url }; // Use audioUrl to match client state
                     }
-                    const objectKey = record.s3_url.substring(urlPrefix.length);
+                    const objectKey = block.s3_url.substring(urlPrefix.length);
 
                     const command = new GetObjectCommand({
                         Bucket: S3_BUCKET_NAME,
                         Key: objectKey,
                     });
 
-                    // Generate a pre-signed URL valid for 1 hour
                     const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+                    
+                    // Return with audioUrl to match the client-side property
+                    return { ...block, audioUrl: signedUrl };
 
-                    return {
-                        ...record,
-                        s3_url: signedUrl, // Replace with the playable URL
-                    };
                 } catch (presignError) {
-                    console.error(`Failed to pre-sign URL for ${record.s3_url}:`, presignError);
-                    // Return the original record with a specific error message
-                    return {
-                        ...record,
-                        s3_url: null, // Set link to null to prevent rendering a broken player
-                        error: (presignError instanceof Error) ? presignError.message : 'Failed to generate playable link'
-                    };
+                    console.error(`Failed to pre-sign URL for block ${block.id}:`, presignError);
+                    return { ...block, audioUrl: null, error: 'Failed to generate playable link' };
                 }
             })
         );
 
-        return NextResponse.json(recordsWithPlayableLinks);
+        return NextResponse.json(blocksWithPlayableLinks);
 
     } catch (err) {
         console.error("GET /api/project/get-records error:", err);

@@ -5,25 +5,34 @@ import { Voice } from '@/lib/types';
 
 // --- دالة مساعدة للحصول على توكن الوصول لخدمة TTS الخارجية ---
 async function getAccessToken() {
+  console.log("Attempting to get TTS access token...");
   if (!process.env.TTS_API_BASE_URL || !process.env.TTS_API_USERNAME || !process.env.TTS_API_PASSWORD) {
+    console.error("TTS Service environment variables are not configured");
     throw new Error("TTS Service environment variables are not configured");
   }
-  const response = await fetch(`${process.env.TTS_API_BASE_URL}/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      username: process.env.TTS_API_USERNAME!,
-      password: process.env.TTS_API_PASSWORD!,
-    }),
-    cache: 'no-store',
-  });
-  if (!response.ok) {
-      const errorBody = await response.text();
-      console.error("TTS Token Auth Failed:", errorBody);
-      throw new Error('Failed to authenticate with external TTS service');
+  try {
+    const response = await fetch(`${process.env.TTS_API_BASE_URL}/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        username: process.env.TTS_API_USERNAME!,
+        password: process.env.TTS_API_PASSWORD!,
+      }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`TTS Token Auth Failed: Status ${response.status}`, errorBody);
+        throw new Error('Failed to authenticate with external TTS service');
+    }
+    const data = await response.json();
+    console.log("Successfully obtained TTS access token.");
+    return data.access_token;
+  } catch (error) {
+    console.error("Error in getAccessToken:", error);
+    throw error;
   }
-  const data = await response.json();
-  return data.access_token;
 }
 // ------------------------------------------------------------
 
@@ -157,11 +166,20 @@ const getLanguageName = (code: string): string => {
 }
 
 export async function GET() {
+  console.log("GET /api/voices: Received request.");
+
+  // Environment variable check
+  if (!process.env.TTS_API_BASE_URL || !process.env.TTS_API_USERNAME || !process.env.TTS_API_PASSWORD) {
+    console.error("TTS API environment variables are not configured on the server.");
+    return NextResponse.json({ error: "TTS service is not configured on the server." }, { status: 500 });
+  }
+
   try {
     // 1. Get the external access token for the TTS service
     const externalToken = await getAccessToken();
 
     // 2. Fetch the list of available providers
+    console.log("Fetching TTS providers...");
     const providersResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts/providers`, {
       headers: {
         'Authorization': `Bearer ${externalToken}`,
@@ -170,54 +188,67 @@ export async function GET() {
     });
 
     if (!providersResponse.ok) {
+      const errorBody = await providersResponse.text();
+      console.error(`Failed to fetch TTS providers: Status ${providersResponse.status}`, errorBody);
       throw new Error('Failed to fetch TTS providers');
     }
     const providers = await providersResponse.json();
+    console.log("Successfully fetched providers:", providers);
 
     // 3. Fetch voices for each provider in parallel
     const allVoicesPromises = providers.map(async (provider: string) => {
-      const voicesResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts/voices/${provider}`, {
-        headers: {
-          'Authorization': `Bearer ${externalToken}`,
-        },
-        cache: 'no-store',
-      });
+      try {
+        console.log(`Fetching voices for provider: ${provider}...`);
+        const voicesResponse = await fetch(`${process.env.TTS_API_BASE_URL}/tts/voices/${provider}`, {
+          headers: {
+            'Authorization': `Bearer ${externalToken}`,
+          },
+          cache: 'no-store',
+        });
 
-      if (!voicesResponse.ok) {
-        console.error(`Failed to fetch voices for provider ${provider}`);
-        return []; // Return empty array for this provider if it fails
+        if (!voicesResponse.ok) {
+          const errorBody = await voicesResponse.text();
+          console.error(`Failed to fetch voices for provider ${provider}: Status ${voicesResponse.status}`, errorBody);
+          return []; // Return empty array for this provider if it fails
+        }
+        const voicesData = await voicesResponse.json();
+        console.log(`Successfully fetched ${voicesData.length} voices for provider: ${provider}.`);
+        
+        // Format voices and add the provider name to each voice
+        return voicesData.map((voice: any) => {
+          const voiceId = voice.voice_id;
+          const parts = voiceId.split('-');
+          const isNeural = voiceId.includes('-');
+          const langCode = isNeural ? parts[0] : 'en';
+          const countryCode = isNeural ? parts[1].toUpperCase() : 'US';
+          const characterName = voice.name;
+
+          return {
+            name: voiceId,
+            gender: voiceGenderMap[voiceId] || 'Not specified',
+            languageName: getLanguageName(langCode),
+            languageCode: langCode,
+            countryName: getCountryName(countryCode),
+            countryCode: countryCode,
+            characterName: characterName,
+            provider: provider, // Add the provider to the voice object
+          };
+        });
+      } catch (error) {
+        console.error(`Error processing provider ${provider}:`, error);
+        return []; // Return empty on error for this provider
       }
-      const voicesData = await voicesResponse.json();
-      
-      // Format voices and add the provider name to each voice
-      return voicesData.map((voice: any) => {
-        const voiceId = voice.voice_id;
-        const parts = voiceId.split('-');
-        const isNeural = voiceId.includes('-');
-        const langCode = isNeural ? parts[0] : 'en';
-        const countryCode = isNeural ? parts[1].toUpperCase() : 'US';
-        const characterName = voice.name;
-
-        return {
-          name: voiceId,
-          gender: voiceGenderMap[voiceId] || 'Not specified',
-          languageName: getLanguageName(langCode),
-          languageCode: langCode,
-          countryName: getCountryName(countryCode),
-          countryCode: countryCode,
-          characterName: characterName,
-          provider: provider, // Add the provider to the voice object
-        };
-      });
     });
 
     // 4. Wait for all promises to resolve and flatten the array
-    const allVoices = (await Promise.all(allVoicesPromises)).flat();
+    const allVoicesNested = await Promise.all(allVoicesPromises);
+    const allVoices = allVoicesNested.flat();
+    console.log(`Total voices fetched from all providers: ${allVoices.length}`);
 
     return NextResponse.json(allVoices);
 
   } catch (error: any) {
-    console.error("Error fetching voices:", error);
+    console.error("Error in GET /api/voices:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch voices." }, { status: 500 });
   }
 }
