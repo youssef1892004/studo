@@ -236,6 +236,7 @@ export default function LegalPage() {
                     <ul className="list-disc list-inside space-y-2 font-mono">
                         <li>**البريد الإلكتروني العام:** aivoicestudio.s@gmail.com</li>
                         <li>**مسؤول حماية البيانات:** ghaymah.systems .</li>
+                        <li>**العنوان:** القاهرة، مصر</li>
                     </ul>
                 </PolicySection>
 

@@ -57,7 +57,10 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: projectData.errors }, { status: 500 });
         }
 
-        const blocks = projectData.data?.Voice_Studio_projects_by_pk?.blocks_json || [];
+        const allBlocks = projectData.data?.Voice_Studio_projects_by_pk?.blocks_json || [];
+
+        // Filter out the special 'merged_blocks' record so it doesn't appear in the UI
+        const blocks = allBlocks.filter((block: any) => block.block_index !== 'merged_blocks');
 
         // 2. Generate pre-signed URLs for any blocks that have an s3_url
         const blocksWithPlayableLinks = await Promise.all(

@@ -14,21 +14,28 @@ export default function CheckoutPage() {
   
   return (
     <div className="min-h-screen pt-24 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      <div className="max-w-3xl mx-auto p-8 text-center">
+      <div className="max-w-3xl mx-auto p-8">
         
-        <div className="p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border-t-8 border-blue-600">
-            <h1 className="text-4xl font-extrabold mb-6 text-gray-900 dark:text-white">
+        {/* Page Header */}
+        <div className="text-right mb-8">
+            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white">الدفع</h1>
+            <p className="text-lg text-gray-500 dark:text-gray-400 mt-2">القاهرة، مصر</p>
+        </div>
+
+        {/* Main Content Card */}
+        <div className="p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border-t-8 border-blue-600 text-center">
+            <h2 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
                 هذه الخدمة قادمة قريباً!
-            </h1>
+            </h2>
             
             <p className="text-xl text-gray-700 dark:text-gray-300 mb-10 leading-relaxed">
                 نحن نعمل حالياً على دمج نظام الدفع. هذه الميزة سوف تكون متاحة في الأيام القادمة.
             </p>
             
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-200 flex items-center justify-center">
+            <h3 className="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-200 flex items-center justify-center">
                 <CreditCard className="w-6 h-6 ml-3 text-blue-600" />
                 طرق الدفع المستقبلية المدعومة:
-            </h2>
+            </h3>
             
             <div className="grid grid-cols-2 gap-4 text-lg font-medium">
                 

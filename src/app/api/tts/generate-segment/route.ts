@@ -28,23 +28,17 @@ async function getAccessToken() {
 export async function POST(request: NextRequest) {
   try {
     // (تعديل) استقبال الـ flag الجديد
-    const { text, voice, project_id, user_id } = await request.json(); 
-    if (!text || !voice) {
-      return NextResponse.json({ error: 'Text and voice are required' }, { status: 400 });
+    const { text, voice, provider, project_id, user_id } = await request.json(); 
+    if (!text || !voice || !provider) {
+      return NextResponse.json({ error: 'Text, voice, and provider are required' }, { status: 400 });
     }
 
     const token = await getAccessToken();
-    
-    const PRO_VOICES_IDS = ['0', '1', '2', '3'];
-    const isProVoice = PRO_VOICES_IDS.includes(voice);
-
-    const provider = isProVoice ? "ghaymah_pro" : "ghaymah";
     
     const blockPayload = { 
         text, 
         provider, 
         voice: voice,
-        ...(isProVoice && { arabic: true, wait_after_ms: 0 }) 
     };
 
     const payload = {

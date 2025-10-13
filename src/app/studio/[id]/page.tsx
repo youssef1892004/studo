@@ -263,7 +263,7 @@ export default function StudioProjectPage() {
         if (!authContext.user) return;
 
         const cardsToGenerate = cards.filter(card =>
-            card.content.blocks.some(b => b.data.text && b.data.text.trim().length > 0) && 
+            card.content.blocks.some(b => b.data.text && b.data.text.trim().length > 0) &&
             !card.isGenerating
         );
 
@@ -273,72 +273,100 @@ export default function StudioProjectPage() {
         }
 
         setIsGenerating(true);
-        const loadingToastId = toast.loading(`Starting generation for ${cardsToGenerate.length} blocks...`);
+        const generationToastId = toast.loading(`Generating audio for ${cardsToGenerate.length} block(s)...`);
+
+        const generationPromises = cardsToGenerate.map(async (card) => {
+            try {
+                updateCard(card.id, { isGenerating: true });
+
+                const selectedVoice = voices.find(v => v.name === card.voice);
+
+                const res = await fetch(`/api/tts/generate-segment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: card.content.blocks.map(b => b.data.text).join(' \n'),
+                        voice: card.voice,
+                        provider: selectedVoice?.provider || 'ghaymah', // Send the correct provider
+                        project_id: projectId,
+                        user_id: authContext.user?.id,
+                    }),
+                });
+
+                const job = await res.json();
+                if (!res.ok) {
+                    throw new Error(job.error || 'Failed to start generation job.');
+                }
+
+                let status = '';
+                while (status !== 'completed' && status !== 'failed') {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    const statusRes = await fetch(`/api/tts/status/${job.job_id}`);
+                    const statusData = await statusRes.json();
+                    status = statusData.status;
+                }
+
+                if (status === 'failed') {
+                    throw new Error(`Generation failed for block: ${card.id}`);
+                }
+
+                const audioRes = await fetch(`/api/tts/result/${job.job_id}`);
+                if (!audioRes.ok) {
+                    throw new Error(`Failed to fetch audio result for job: ${job.job_id}`);
+                }
+
+                const audioBlob = await audioRes.blob();
+                const s3_url = await uploadAudioSegment(audioBlob, projectId);
+                const duration = getMP3Duration(Buffer.from(await audioBlob.arrayBuffer())) / 1000;
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                return { id: card.id, s3_url, audioUrl, duration };
+
+            } catch (error: any) {
+                console.error(`Error generating audio for card ${card.id}:`, error);
+                // Return an error state for this specific card
+                return { id: card.id, error: error.message };
+            }
+        });
 
         try {
-            const blocksPayload = cardsToGenerate.map(card => {
-                const selectedVoice = voices.find(v => v.name === card.voice);
-                return {
-                    text: card.content.blocks.map(b => b.data.text).join(' ').trim(),
-                    voice: card.voice,
-                    provider: selectedVoice?.provider || 'ghaymah', 
-                    block_id: card.id,
-                };
+            const results = await Promise.all(generationPromises);
+            const errorMessages: string[] = [];
+
+            setCards(currentCards => {
+                const newCards = [...currentCards];
+                results.forEach(result => {
+                    const cardIndex = newCards.findIndex(c => c.id === result.id);
+                    if (cardIndex !== -1) {
+                        if (result.error) {
+                            newCards[cardIndex] = { ...newCards[cardIndex], isGenerating: false };
+                            errorMessages.push(`Failed: ${result.error}`);
+                        } else {
+                            newCards[cardIndex] = {
+                                ...newCards[cardIndex],
+                                isGenerating: false,
+                                s3_url: result.s3_url,
+                                audioUrl: result.audioUrl,
+                                duration: result.duration,
+                            };
+                        }
+                    }
+                });
+                return newCards;
             });
 
-            const createResponse = await fetch(`/api/tts/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    project_id: projectId,
-                    user_id: authContext.user.id,
-                    blocks: blocksPayload
-                }),
-            });
+            errorMessages.forEach(msg => toast.error(msg));
 
-            if (!createResponse.ok) {
-                const errJson = await createResponse.json().catch(() => ({}));
-                throw new Error(errJson.error || 'Failed to start TTS job.');
+            const successCount = results.filter(r => !r.error).length;
+            if (successCount > 0) {
+                toast.success(`Successfully generated audio for ${successCount} block(s).`, { id: generationToastId });
+            } else {
+                toast.error('Audio generation failed for all blocks.', { id: generationToastId });
             }
 
-            const { job_id } = await createResponse.json();
-            if (!job_id) throw new Error('No job_id returned from create API.');
-
-            let status = '';
-            while (status !== 'completed') {
-                await new Promise(res => setTimeout(res, 2000));
-                const statusResponse = await fetch(`/api/tts/status/${job_id}`);
-                if (!statusResponse.ok) throw new Error('Failed to poll generation status.');
-                const statusData = await statusResponse.json();
-                status = statusData.status;
-                if (status === 'failed') throw new Error('Audio generation failed in the background.');
-            }
-
-            const audioResponse = await fetch(`/api/tts/result/${job_id}`);
-            if (!audioResponse.ok) throw new Error('Failed to fetch audio result.');
-            const audioBlob = await audioResponse.blob();
-
-            const s3_url = await uploadAudioSegment(audioBlob, projectId);
-            const durationSec = getMP3Duration(Buffer.from(await audioBlob.arrayBuffer())) / 1000;
-            const presignedAudioUrl = URL.createObjectURL(audioBlob);
-
-            setCards(currentCards => currentCards.map(card => {
-                if (cardsToGenerate.some(c => c.id === card.id)) {
-                    return {
-                        ...card,
-                        isGenerating: false,
-                        s3_url: s3_url, // Persist the permanent URL
-                        audioUrl: presignedAudioUrl, // Use temporary URL for immediate playback
-                        duration: durationSec,
-                    };
-                }
-                return card;
-            }));
-
-            toast.success('Generation complete!', { id: loadingToastId });
-
-        } catch (err: any) {
-            toast.error(err.message || "An unknown error occurred.", { id: loadingToastId });
+        } catch (e) {
+            // This catch block is for errors in Promise.all itself, which is unlikely.
+            toast.error('An unexpected error occurred during generation.', { id: generationToastId });
         } finally {
             setIsGenerating(false);
         }
