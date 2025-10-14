@@ -15,24 +15,33 @@ const setFfmpegPath = () => {
     const staticPath = ffmpegStatic || '';
     
     let finalPath = '';
+    let isStaticPath = false;
 
     if (fs.existsSync(dockerPath)) {
         finalPath = dockerPath;
         console.log(`FFMPEG Path: Found at Docker path: ${dockerPath}`);
     } else if (staticPath) {
         finalPath = staticPath;
+        isStaticPath = true;
         console.log(`FFMPEG Path: Using ffmpeg-static path: ${staticPath}`);
     } else {
-        // إذا فشل كل شيء، قم بالتسجيل للمساعدة في التشخيص
         console.error("FFMPEG Path: Neither Docker path nor ffmpeg-static path is available.");
     }
     
     if (finalPath) {
+        // If using the path from ffmpeg-static, ensure it has execute permissions.
+        // This is often necessary in non-Docker environments or after package installations.
+        if (isStaticPath && process.platform !== 'win32') { // chmod is not for windows
+            try {
+                fs.chmodSync(finalPath, '755');
+                console.log(`FFMPEG Path: Set execute permissions on ${finalPath}`);
+            } catch (err) {
+                console.error(`FFMPEG Path: Failed to set execute permissions on ${finalPath}:`, err);
+            }
+        }
+
         ffmpeg.setFfmpegPath(finalPath);
         
-        // The problematic chmod call was removed. It's not needed in Docker and causes permission errors.
-        
-        // التحقق النهائي بعد التعيين
         if (!fs.existsSync(finalPath)) {
              console.error(`FFMPEG Path Error: Configured path does not exist: ${finalPath}`);
         }

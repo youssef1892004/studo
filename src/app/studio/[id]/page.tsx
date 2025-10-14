@@ -293,6 +293,8 @@ export default function StudioProjectPage() {
                     throw new Error(job.error || 'Failed to start generation job.');
                 }
 
+                updateCard(card.id, { job_id: job.job_id });
+
                 let status = '';
                 while (status !== 'completed' && status !== 'failed') {
                     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -315,7 +317,7 @@ export default function StudioProjectPage() {
                 const duration = getMP3Duration(Buffer.from(await audioBlob.arrayBuffer())) / 1000;
                 const audioUrl = URL.createObjectURL(audioBlob);
 
-                return { id: card.id, s3_url, audioUrl, duration };
+                return { id: card.id, s3_url, audioUrl, duration, job_id: job.job_id };
 
             } catch (error: any) {
                 console.error(`Error generating audio for card ${card.id}:`, error);
@@ -343,6 +345,7 @@ export default function StudioProjectPage() {
                                 s3_url: result.s3_url,
                                 audioUrl: result.audioUrl,
                                 duration: result.duration,
+                                job_id: result.job_id,
                             };
                         }
                     }
@@ -368,24 +371,48 @@ export default function StudioProjectPage() {
     };
   
     const handleDownloadAll = async () => {
-        const audioCards = cards.filter(card => card.s3_url);
+        const audioCards = cards.filter(card => card.s3_url && card.job_id);
         if (audioCards.length === 0) {
-            toast.error("No audio has been generated yet.");
+            toast.error("No audio has been generated and saved yet.");
             return;
         }
 
-        // This is a simplified download-all. A real implementation might need a backend merge.
-        // For now, we download the audio of the first available block.
-        const firstCardWithAudio = audioCards[0];
-        if (firstCardWithAudio.audioUrl) {
+        const jobIds = audioCards.map(card => card.job_id).filter((id): id is string => !!id);
+
+        if (jobIds.length === 0) {
+            toast.error("Could not find job IDs for generated audio.");
+            return;
+        }
+
+        const downloadToastId = toast.loading("Merging audio... this may take a moment.");
+
+        try {
+            const response = await fetch('/api/tts/merge-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jobIds }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Merge request failed.");
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = firstCardWithAudio.audioUrl;
+            a.href = url;
             a.download = `${projectTitle.replace(/ /g, '_') || 'project'}.mp3`;
             document.body.appendChild(a);
             a.click();
             a.remove();
-        } else {
-            toast.error("Audio not loaded yet. Please wait a moment.");
+            window.URL.revokeObjectURL(url);
+
+            toast.success("Download complete!", { id: downloadToastId });
+
+        } catch (error: any) {
+            console.error("Failed to download merged audio:", error);
+            toast.error(`Download failed: ${error.message}`, { id: downloadToastId });
         }
     };
   
