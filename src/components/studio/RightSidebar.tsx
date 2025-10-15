@@ -26,6 +26,7 @@ interface RightSidebarProps {
   setEnableTashkeel: (value: boolean) => void;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
+  maintenanceVoices: string[];
 }
 
 // === Voice Card Component ===
@@ -35,7 +36,8 @@ const VoiceCardItem: React.FC<{
     onApply: (name: string) => void;
     onToggleFavorite: (name: string) => void;
     isFavorite: boolean;
-}> = ({ voice, activeVoiceName, onApply, onToggleFavorite, isFavorite }) => {
+    isUnderMaintenance: boolean;
+}> = ({ voice, activeVoiceName, onApply, onToggleFavorite, isFavorite, isUnderMaintenance }) => {
     const isSelected = activeVoiceName === voice.name;
     const [isPreviewing, setIsPreviewing] = useState(false);
 
@@ -84,15 +86,22 @@ const VoiceCardItem: React.FC<{
 
     return (
         <div
-            onClick={() => onApply(voice.name)}
-            title={`Select ${voice.characterName}`}
-            className={`group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 
-                ${isSelected 
-                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 ring-2 ring-blue-500 dark:ring-blue-400 shadow-lg shadow-blue-100 dark:shadow-blue-900/20'
-                    : 'bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:shadow-md border border-gray-100 dark:border-gray-700/50'
+            onClick={isUnderMaintenance ? undefined : () => onApply(voice.name)}
+            title={isUnderMaintenance ? "This voice is under maintenance" : `Select ${voice.characterName}`}
+            className={`group relative flex items-center gap-3 p-3 rounded-xl transition-all duration-200 
+                ${isUnderMaintenance 
+                    ? 'opacity-60 cursor-not-allowed' 
+                    : isSelected 
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 ring-2 ring-blue-500 dark:ring-blue-400 shadow-lg shadow-blue-100 dark:shadow-blue-900/20'
+                        : 'bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:shadow-md border border-gray-100 dark:border-gray-700/50'
                 }
             `}
         >
+            {isUnderMaintenance && (
+               <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/70 flex items-center justify-center z-10 rounded-xl">
+                   <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded">Under Maintenance</span>
+               </div>
+            )}
             {/* Avatar */}
             <div className={`relative w-11 h-11 flex items-center justify-center font-bold rounded-xl text-sm flex-shrink-0 shadow-sm ${
                 voice.isPro 
@@ -180,6 +189,7 @@ export default function RightSidebar({
   setProviderFilter,
   searchTerm,
   setSearchTerm,
+  maintenanceVoices,
 }: RightSidebarProps) {
     const [showVoiceLibrary, setShowVoiceLibrary] = useState(false);
     const [recentVoices, setRecentVoices] = useState<Voice[]>([]);
@@ -519,6 +529,7 @@ export default function RightSidebar({
                             }}
                             onToggleFavorite={handleToggleFavorite}
                             isFavorite={favoriteVoices.includes(voice.name)}
+                            isUnderMaintenance={maintenanceVoices.includes(voice.name)}
                         />
                       ))
                     ) : (

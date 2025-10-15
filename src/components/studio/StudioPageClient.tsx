@@ -20,8 +20,14 @@ import CenteredLoader from '@/components/CenteredLoader';
 
 const PRO_VOICES_IDS = ['0', '1', '2', '3'];
 
+const MAINTENANCE_VOICES = ['0', '1', '2', '3'];
+
+
+
 interface StudioPageClientProps {
+
     initialProject: Project;
+
     initialVoices: (Voice & { isPro?: boolean })[];
     initialBlocks: StudioBlock[];
 }
@@ -210,25 +216,41 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
         setIsGenerating(true);
         const generationToastId = toast.loading(`Generating audio for ${cardsToGenerate.length} block(s)...`);
 
-                    const generationPromises = cardsToGenerate.map(async (card) => {
-                        try {
-                            updateCard(card.id, { isGenerating: true });
-        
-                            const selectedVoice = voices.find(v => v.name === card.voice);
-        
-                            const res = await fetch(`/api/tts/generate-segment`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    text: card.content.blocks.map(b => b.data.text).join(' \n'),
-                                    voice: card.voice,
-                                    provider: selectedVoice?.provider || 'ghaymah',
-                                    project_id: projectId,
-                                    user_id: authContext.user?.id,
-                                    arabic: card.isArabic, // Pass the arabic flag
-                                }),
-                            });
-                const job = await res.json();
+                            const generationPromises = cardsToGenerate.map(async (card) => {
+                                // Maintenance Check
+                                if (MAINTENANCE_VOICES.includes(card.voice)) {
+                                    const voiceName = voices.find(v => v.name === card.voice)?.characterName || card.voice;
+                                    const errorMsg = `Voice "${voiceName}" is currently under maintenance.`;
+                                    toast.error(errorMsg);
+                                    return { id: card.id, error: errorMsg };
+                                }
+                    
+                                const selectedVoice = voices.find(v => v.name === card.voice);
+                    
+                                // Voice Not Found Check
+                                if (!selectedVoice) {
+                                    const errorMsg = `Voice for block with text "${card.content.blocks[0].data.text.substring(0, 20)}..." not found. Please re-select a voice.`;
+                                    toast.error(errorMsg);
+                                    return { id: card.id, error: errorMsg };
+                                }
+                    
+                                try {
+                                    updateCard(card.id, { isGenerating: true });
+                    
+                                    const provider = selectedVoice.provider; // No more fallback!
+                    
+                                    const res = await fetch(`/api/tts/generate-segment`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            text: card.content.blocks.map(b => b.data.text).join(' \n'),
+                                            voice: card.voice,
+                                            provider: provider,
+                                            project_id: projectId,
+                                            user_id: authContext.user?.id,
+                                            arabic: card.isArabic,
+                                        }),
+                                    });                const job = await res.json();
                 if (!res.ok) {
                     throw new Error(job.error || 'Failed to start generation job.');
                 }
@@ -452,6 +474,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
                                 setEnableTashkeel={setEnableTashkeel}
                                 searchTerm={searchTerm}
                                 setSearchTerm={setSearchTerm}
+                                maintenanceVoices={MAINTENANCE_VOICES}
                              />
                         </div>
                     )}
