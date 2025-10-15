@@ -2,12 +2,16 @@
 import { Voice } from './types';
 
 // A robust function to get the correct API path
-const getApiUrl = (path: string) => {
-  // For server-side rendering or if an absolute URL is explicitly defined, use it.
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return `${process.env.NEXT_PUBLIC_APP_URL}${path}`;
+export const getApiUrl = (path: string) => {
+  const baseUrl = process.env.NODE_ENV === 'production'
+    ? (process.env.NEXT_PUBLIC_APP_URL || 'https://ghaymah.systems')
+    : 'http://localhost:3000';
+
+  if (typeof window === 'undefined') {
+    // We are on the server, so we need an absolute URL
+    return `${baseUrl}${path}`;
   }
-  // For client-side rendering, relative paths are always safe and correct.
+  // We are on the client, so a relative URL is fine
   return path;
 };
 

@@ -312,10 +312,10 @@ export default function RightSidebar({
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold shadow-md">
-                    {activeVoiceName ? activeVoiceName.charAt(0).toUpperCase() : 'C'}
+                    {voices.find(v => v.name === activeVoiceName)?.characterName.charAt(0).toUpperCase() || 'C'}
                   </div>
                   <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {activeVoiceName || 'Chris'}
+                    {voices.find(v => v.name === activeVoiceName)?.characterName || activeVoiceName || 'Chris'}
                   </span>
                 </div>
                 <ChevronDown size={18} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
@@ -444,7 +444,7 @@ export default function RightSidebar({
                       <select
                         value={languageFilter}
                         onChange={(e) => setLanguageFilter(e.target.value)}
-                        className="block w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 pl-3 pr-9 text-sm text-gray-800 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm capitalize cursor-pointer transition-all"
+                        className="block w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 pl-9 pr-3 text-sm text-gray-800 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm capitalize cursor-pointer transition-all"
                       >
                         <option value="all">All Languages</option>
                         {filteredLanguages.map((lang) => (
@@ -453,14 +453,14 @@ export default function RightSidebar({
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none group-focus-within:text-blue-500 transition-colors" size={16} />
+                      <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none group-focus-within:text-blue-500 transition-colors" size={16} />
                     </div>
 
                     <div className="relative group">
                       <select
                         value={countryFilter}
                         onChange={(e) => setCountryFilter(e.target.value)}
-                        className="block w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 pl-3 pr-8 text-sm text-gray-800 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-pointer transition-all"
+                        className="block w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 pl-8 pr-3 text-sm text-gray-800 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-pointer transition-all"
                       >
                         <option value="all">All Dialects</option>
                         {filteredCountries.map((country) => (
@@ -469,7 +469,7 @@ export default function RightSidebar({
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none group-focus-within:text-blue-500 transition-colors" size={16} />
+                      <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none group-focus-within:text-blue-500 transition-colors" size={16} />
                     </div>
                 </div>
                 
@@ -478,7 +478,7 @@ export default function RightSidebar({
                   <select
                     value={providerFilter}
                     onChange={(e) => setProviderFilter(e.target.value)}
-                    className="block w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 pl-3 pr-9 text-sm text-gray-800 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm capitalize cursor-pointer transition-all"
+                    className="block w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl py-2.5 pl-9 pr-3 text-sm text-gray-800 dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm capitalize cursor-pointer transition-all"
                   >
                     <option value="all">All Providers</option>
                     {providers.map((provider) => (
@@ -487,7 +487,7 @@ export default function RightSidebar({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none group-focus-within:text-blue-500 transition-colors" size={16} />
+                  <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none group-focus-within:text-blue-500 transition-colors" size={16} />
                 </div>
             </div>
 

@@ -47,7 +47,12 @@ export default function EditorBlock({ cardData, onUpdate, isActive, onClick }: E
         async onChange(api) {
           try {
             const savedData = await api.saver.save();
-            onUpdate(cardData.id, { content: savedData });
+            onUpdate(cardData.id, { 
+              content: savedData,
+              audioUrl: undefined,
+              s3_url: undefined,
+              duration: undefined,
+            });
           } catch(e) {
             console.error("Editor.js save error:", e);
           }

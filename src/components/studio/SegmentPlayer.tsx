@@ -2,7 +2,7 @@
 'use client';
 
 import { Play, Pause, LoaderCircle, X } from 'lucide-react';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 interface SegmentPlayerProps {
   audioUrl: string;
@@ -19,14 +19,16 @@ export default function SegmentPlayer({ audioUrl, text, blockId, projectId, onUr
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isRefreshingUrl, setIsRefreshingUrl] = useState(false);
+  const isRefreshingRef = useRef(false);
 
   // دالة لتجديد الرابط المنتهي الصلاحية
-  const refreshAudioUrl = async () => {
-    if (!blockId || !projectId || !onUrlRefresh || isRefreshingUrl) {
+  const refreshAudioUrl = useCallback(async () => {
+    if (!blockId || !projectId || !onUrlRefresh || isRefreshingRef.current) {
       return false;
     }
 
     try {
+      isRefreshingRef.current = true;
       setIsRefreshingUrl(true);
       console.log("🔄 تجديد رابط الملف الصوتي للبلوك:", blockId);
       
@@ -49,9 +51,10 @@ export default function SegmentPlayer({ audioUrl, text, blockId, projectId, onUr
       console.error("❌ فشل في تجديد رابط الملف الصوتي:", error);
       return false;
     } finally {
+      isRefreshingRef.current = false;
       setIsRefreshingUrl(false);
     }
-  }; 
+  }, [blockId, projectId, onUrlRefresh]); 
 
   // 1. إدارة أحداث الوسائط وتنظيف URL
   useEffect(() => {
@@ -216,7 +219,7 @@ export default function SegmentPlayer({ audioUrl, text, blockId, projectId, onUr
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
     };
-  }, [audioUrl]); // الركض عند تغيير الـ URL
+  }, [audioUrl, blockId, onUrlRefresh, projectId, refreshAudioUrl, isRefreshingUrl]);
 
 
   const togglePlayPause = (e: React.MouseEvent) => {

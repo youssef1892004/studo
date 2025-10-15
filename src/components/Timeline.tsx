@@ -55,11 +55,12 @@ const formatTime = (time: number) => {
 
 interface TimelineProps {
   cards: StudioBlock[];
+  voices: Voice[];
   onCardsUpdate?: (cards: StudioBlock[]) => void; // لتحديث الكروت من المكون الأب
   isBlocksProcessing: boolean;
 }
 
-export default function Timeline({ cards, onCardsUpdate, isBlocksProcessing }: TimelineProps) {
+export default function Timeline({ cards, voices, onCardsUpdate, isBlocksProcessing }: TimelineProps) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
     const [totalDuration, setTotalDuration] = useState(0);
@@ -249,7 +250,7 @@ export default function Timeline({ cards, onCardsUpdate, isBlocksProcessing }: T
     const handleTrim = useCallback((segmentId: string, startTime: number, endTime: number) => {
         if (!onCardsUpdate) return;
         
-        const updatedCards = cards.map(card => {
+        onCardsUpdate(prevCards => prevCards.map(card => {
             if (card.id === segmentId) {
                 const newDuration = endTime - startTime;
                 return { 
@@ -260,9 +261,7 @@ export default function Timeline({ cards, onCardsUpdate, isBlocksProcessing }: T
                 };
             }
             return card;
-        });
-        
-        onCardsUpdate(updatedCards);
+        }));
         
         // إعادة ضبط التشغيل
         setCurrentCardIndex(0);
@@ -271,15 +270,13 @@ export default function Timeline({ cards, onCardsUpdate, isBlocksProcessing }: T
         
         alert(`✅ تم قص المقطع بنجاح!\n\nالمدة الجديدة: ${(endTime - startTime).toFixed(2)} ثانية`);
         
-    }, [cards, onCardsUpdate]);
+    }, [onCardsUpdate]);
 
     // [NEW] دالة معالجة الحذف
     const handleDelete = useCallback((segmentId: string) => {
         if (!onCardsUpdate) return;
 
-        const updatedCards = cards.filter(card => card.id !== segmentId);
-        
-        onCardsUpdate(updatedCards);
+        onCardsUpdate(prevCards => prevCards.filter(card => card.id !== segmentId));
         
         // إعادة ضبط التشغيل
         setCurrentCardIndex(0);
@@ -287,7 +284,7 @@ export default function Timeline({ cards, onCardsUpdate, isBlocksProcessing }: T
         setIsPlaying(false);
         
         alert(`🗑️ تم حذف المقطع بنجاح.`);
-    }, [cards, onCardsUpdate]);
+    }, [onCardsUpdate]);
     
     const totalWidthWithZoom = totalDuration * zoomLevel;
     const progressLeft = (currentTime / totalDuration) * totalWidthWithZoom;
@@ -361,7 +358,8 @@ export default function Timeline({ cards, onCardsUpdate, isBlocksProcessing }: T
                     <div className="absolute top-1/2 -translate-y-1/2 w-full h-0.5 bg-gray-300"></div>
                     
                     {audioSegments.map((card, index) => {
-                        const characterInitial = card.voice.split('-')[2]?.charAt(0).toUpperCase() || '?';
+                        const voice = voices.find(v => v.name === card.voice);
+                        const characterInitial = voice?.characterName?.charAt(0).toUpperCase() || '?';
                         const textPreview = card.content.blocks.map(b => b.data.text).join(' ').trim();
                         const isCurrentSegment = index === currentCardIndex;
                         const segmentDuration = card.duration || 0;

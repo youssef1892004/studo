@@ -6,8 +6,8 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import dynamic from 'next/dynamic'; 
 import { Voice, StudioBlock } from '@/lib/types';
-import { GripVertical, Mic, Trash2, Download } from 'lucide-react'; 
-import { useState, useEffect } from 'react';
+import { GripVertical, Mic, Trash2, Download, User } from 'lucide-react'; 
+import { useState, useEffect, useCallback } from 'react';
 import SegmentPlayer from './studio/SegmentPlayer';
 
 // <--- استيراد ديناميكي لحل مشكلة SSR
@@ -51,7 +51,7 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
   }, [textContent]);
   
   const activeVoice = props.voices.find(v => v.name === props.cardData.voice);
-  const characterName = activeVoice ? activeVoice.name.split('-')[2]?.replace('Neural', '') : '...';
+  const characterName = activeVoice ? activeVoice.characterName : '...';
   const characterInitial = characterName ? characterName.charAt(0).toUpperCase() : '?';
 
   // دالة لتحميل المقطع الفردي
@@ -65,6 +65,10 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
     link.click();
     document.body.removeChild(link);
   };
+
+  const handleUrlRefresh = useCallback((newUrl: string) => {
+    props.onUpdate(props.cardData.id, { audioUrl: newUrl });
+  }, [props.onUpdate, props.cardData.id]);
   
   // [REMOVED LOGIC] تم حذف دالة toggleArabicFeature بالكامل لأن الزر أصبح في الشريط الجانبي
 
@@ -77,9 +81,9 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
           
           <div
             className="flex items-center justify-center w-7 h-7 bg-gray-200 text-gray-700 text-sm font-bold rounded-full cursor-pointer"
-            title={`Voice: ${characterName}`}
+            title={`Voice: ${props.cardData.voiceSelected ? characterName : 'Default'}`}
           >
-            {characterInitial}
+            {props.cardData.voiceSelected ? characterInitial : <User size={16} />}
           </div>
           
           {/* 🚨 [REMOVED] تم حذف زر تفعيل التشكيل العربي (Pro Arabic Toggle Button) */}
@@ -130,9 +134,7 @@ export default function SortableEditorBlock(props: SortableEditorBlockProps) {
               text={textContent}
               blockId={props.cardData.id}
               projectId={props.projectId}
-              onUrlRefresh={(newUrl) => {
-                props.onUpdate(props.cardData.id, { audioUrl: newUrl });
-              }}
+              onUrlRefresh={handleUrlRefresh}
             />
           )}
         </div>

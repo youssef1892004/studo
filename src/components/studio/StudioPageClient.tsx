@@ -114,7 +114,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
   
     const addCard = useCallback((currentVoices = voices) => {
         const newCardId = uuidv4();
-        const defaultVoice = currentVoices.find(v => !v.isPro)?.name || "ar-EG-ShakirNeural";
+        const defaultVoice = "ar-EG-ShakirNeural";
 
         setCards(prevCards => {
             const newCard: StudioBlock = {
@@ -171,18 +171,18 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
         calculateMissingDurations();
     }, [cards]);
     
-    const updateCard = (id: string, data: Partial<StudioBlock>) => {
+    const updateCard = useCallback((id: string, data: Partial<StudioBlock>) => {
         setCards(currentCards => 
             currentCards.map(card => 
               card.id === id ? { ...card, ...data } : card
             )
         );
-    };
+    }, []);
 
-    const removeCard = async (id: string) => {
+    const removeCard = useCallback(async (id: string) => {
         setCards(prev => prev.filter(card => card.id !== id));
         // The saveBlocks useEffect will handle persisting this change
-    };
+    }, []);
     
     const handleApplyVoice = (voiceName: string) => {
       if (activeCardId) {
@@ -197,11 +197,11 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
         if (isGenerating) return;
         if (!authContext.user) return;
 
-        const cardsToGenerate = cards.filter(card =>
-            card.content.blocks.some(b => b.data.text && b.data.text.trim().length > 0) &&
-            !card.isGenerating
-        );
-
+            const cardsToGenerate = cards.filter(card =>
+                card.content.blocks.some(b => b.data.text && b.data.text.trim().length > 0) &&
+                !card.audioUrl &&
+                !card.isGenerating
+            );
         if (cardsToGenerate.length === 0) {
             toast.error('Add text to generate audio or wait for the current process to complete.');
             return;
@@ -210,24 +210,24 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
         setIsGenerating(true);
         const generationToastId = toast.loading(`Generating audio for ${cardsToGenerate.length} block(s)...`);
 
-        const generationPromises = cardsToGenerate.map(async (card) => {
-            try {
-                updateCard(card.id, { isGenerating: true });
-
-                const selectedVoice = voices.find(v => v.name === card.voice);
-
-                const res = await fetch(`/api/tts/generate-segment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: card.content.blocks.map(b => b.data.text).join(' \n'),
-                        voice: card.voice,
-                        provider: selectedVoice?.provider || 'ghaymah', // Send the correct provider
-                        project_id: projectId,
-                        user_id: authContext.user?.id,
-                    }),
-                });
-
+                    const generationPromises = cardsToGenerate.map(async (card) => {
+                        try {
+                            updateCard(card.id, { isGenerating: true });
+        
+                            const selectedVoice = voices.find(v => v.name === card.voice);
+        
+                            const res = await fetch(`/api/tts/generate-segment`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    text: card.content.blocks.map(b => b.data.text).join(' \n'),
+                                    voice: card.voice,
+                                    provider: selectedVoice?.provider || 'ghaymah',
+                                    project_id: projectId,
+                                    user_id: authContext.user?.id,
+                                    arabic: card.isArabic, // Pass the arabic flag
+                                }),
+                            });
                 const job = await res.json();
                 if (!res.ok) {
                     throw new Error(job.error || 'Failed to start generation job.');
@@ -430,7 +430,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
                     </main>
                     
                     {isSidebarOpen && (
-                        <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+                        <div className="w-[420px] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
                             <RightSidebar
                                 voices={filteredVoices}
                                 onApplyVoice={handleApplyVoice}
@@ -462,6 +462,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
                         <div className="h-full flex flex-col">
                             <Timeline 
                                 cards={cards} 
+                                voices={voices}
                                 onCardsUpdate={setCards} 
                                 isBlocksProcessing={isCriticalLoading}
                             />

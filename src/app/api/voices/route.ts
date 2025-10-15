@@ -39,6 +39,12 @@ async function getAccessToken() {
 
 // --- القائمة النهائية والدقيقة لتحديد الجنس باستخدام معرف الصوت (Voice ID) ---
 const voiceGenderMap: Record<string, Voice['gender']> = {
+    // Ghaymah Pro Voices
+    "0": "Male",
+    "1": "Male",
+    "2": "Female",
+    "3": "Female",
+
     // Custom English Voices
     "21m00Tcm4TlvDq8ikWAM": "Female", // Rachel
     "2EiwWnXFnvU5JabPnv8n": "Male",   // Clyde
@@ -137,6 +143,13 @@ const voiceGenderMap: Record<string, Voice['gender']> = {
     "it-IT-DiegoNeural": "Male", "it-IT-ElsaNeural": "Female"
 };
 
+const proVoiceCharacterNameMap: Record<string, string> = {
+    '0': 'ادم',
+    '1': 'احمد',
+    '2': 'ليله',
+    '3': 'ليان',
+};
+
 const getCountryName = (code: string): string => {
     const countries: Record<string, string> = {
         'SA': 'السعودية', 'EG': 'مصر', 'AE': 'الإمارات', 'KW': 'الكويت', 'QA': 'قطر',
@@ -217,11 +230,23 @@ export async function GET() {
         // Format voices and add the provider name to each voice
         return voicesData.map((voice: any) => {
           const voiceId = voice.voice_id;
+          const characterName = proVoiceCharacterNameMap[voiceId] || voice.name;
+          const isPro = ['0', '1', '2', '3'].includes(voiceId);
+
           const parts = voiceId.split('-');
           const isNeural = voiceId.includes('-');
-          const langCode = isNeural ? parts[0] : 'en';
-          const countryCode = isNeural ? parts[1].toUpperCase() : 'US';
-          const characterName = voice.name;
+
+          // Corrected logic
+          let langCode = 'en';
+          let countryCode = 'US';
+
+          if (isPro) {
+              langCode = 'ar';
+              countryCode = 'SA'; // Default Arabic country
+          } else if (isNeural) {
+              langCode = parts[0];
+              countryCode = parts[1].toUpperCase();
+          }
 
           return {
             name: voiceId,

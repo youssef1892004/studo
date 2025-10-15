@@ -28,7 +28,7 @@ async function getAccessToken() {
 export async function POST(request: NextRequest) {
   try {
     // (تعديل) استقبال الـ flag الجديد
-    const { text, voice, provider, project_id, user_id } = await request.json(); 
+    const { text, voice, provider, project_id, user_id, arabic } = await request.json(); 
     if (!text || !voice || !provider) {
       return NextResponse.json({ error: 'Text, voice, and provider are required' }, { status: 400 });
     }
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
         text, 
         provider, 
         voice: voice,
+        arabic: arabic, // Pass the arabic flag
     };
 
     const payload = {
