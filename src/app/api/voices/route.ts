@@ -231,7 +231,7 @@ export async function GET() {
         return voicesData.map((voice: any) => {
           const voiceId = voice.voice_id;
           const characterName = proVoiceCharacterNameMap[voiceId] || voice.name;
-          const isPro = ['0', '1', '2', '3'].includes(voiceId);
+          const isPro = provider === 'ghaymah' && ['0', '1', '2', '3'].includes(voiceId);
 
           const parts = voiceId.split('-');
           const isNeural = voiceId.includes('-');

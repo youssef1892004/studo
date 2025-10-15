@@ -529,7 +529,7 @@ export default function RightSidebar({
                             }}
                             onToggleFavorite={handleToggleFavorite}
                             isFavorite={favoriteVoices.includes(voice.name)}
-                            isUnderMaintenance={maintenanceVoices.includes(voice.name)}
+                            isUnderMaintenance={voice.provider === 'ghaymah' && maintenanceVoices.includes(voice.name)}
                         />
                       ))
                     ) : (

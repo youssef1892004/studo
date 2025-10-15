@@ -216,24 +216,23 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
         setIsGenerating(true);
         const generationToastId = toast.loading(`Generating audio for ${cardsToGenerate.length} block(s)...`);
 
-                            const generationPromises = cardsToGenerate.map(async (card) => {
-                                // Maintenance Check
-                                if (MAINTENANCE_VOICES.includes(card.voice)) {
-                                    const voiceName = voices.find(v => v.name === card.voice)?.characterName || card.voice;
-                                    const errorMsg = `Voice "${voiceName}" is currently under maintenance.`;
-                                    toast.error(errorMsg);
-                                    return { id: card.id, error: errorMsg };
-                                }
-                    
-                                const selectedVoice = voices.find(v => v.name === card.voice);
-                    
-                                // Voice Not Found Check
-                                if (!selectedVoice) {
-                                    const errorMsg = `Voice for block with text "${card.content.blocks[0].data.text.substring(0, 20)}..." not found. Please re-select a voice.`;
-                                    toast.error(errorMsg);
-                                    return { id: card.id, error: errorMsg };
-                                }
-                    
+                                    const generationPromises = cardsToGenerate.map(async (card) => {
+                                        const selectedVoice = voices.find(v => v.name === card.voice);
+                            
+                                        // Maintenance Check
+                                        if (selectedVoice?.provider === 'ghaymah' && MAINTENANCE_VOICES.includes(card.voice)) {
+                                            const voiceName = selectedVoice?.characterName || card.voice;
+                                            const errorMsg = `Voice "${voiceName}" is currently under maintenance.`;
+                                            toast.error(errorMsg);
+                                            return { id: card.id, error: errorMsg };
+                                        }
+                            
+                                        // Voice Not Found Check
+                                        if (!selectedVoice) {
+                                            const errorMsg = `Voice for block with text "${card.content.blocks[0].data.text.substring(0, 20)}..." not found. Please re-select a voice.`;
+                                            toast.error(errorMsg);
+                                            return { id: card.id, error: errorMsg };
+                                        }                    
                                 try {
                                     updateCard(card.id, { isGenerating: true });
                     

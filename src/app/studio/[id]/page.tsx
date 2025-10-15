@@ -79,7 +79,7 @@ export default async function StudioProjectPage({ params }: Props) {
     const PRO_VOICES_IDS = ['0', '1', '2', '3'];
     const allVoices = voices.map((v: Voice) => ({ 
         ...v, 
-        isPro: PRO_VOICES_IDS.includes(v.name) 
+        isPro: v.provider === 'ghaymah' && PRO_VOICES_IDS.includes(v.name) 
     }));
 
     return (
