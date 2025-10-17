@@ -1,6 +1,5 @@
-// src/components/studio/StudioPageClient.tsx
 'use client';
-
+    
 import { useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
@@ -193,9 +192,17 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
     const handleApplyVoice = (voiceName: string) => {
       if (activeCardId) {
         const selectedVoice = voices.find(v => v.name === voiceName);
-        const isProVoice = selectedVoice?.isPro ?? false;
-        updateCard(activeCardId, { voice: voiceName, isArabic: isProVoice, voiceSelected: true });
-        toast.success(`Voice applied.`);
+        const isArabicVoice = selectedVoice?.languageCode === 'ar';
+        updateCard(activeCardId, { 
+            voice: voiceName, 
+            isArabic: isArabicVoice, 
+            voiceSelected: true,
+            audioUrl: undefined,
+            s3_url: '',
+            duration: undefined,
+            job_id: undefined,
+        });
+        toast.success(`Voice applied. Audio will be regenerated.`);
       }
     };
     
@@ -203,97 +210,156 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
         if (isGenerating) return;
         if (!authContext.user) return;
 
-            const cardsToGenerate = cards.filter(card =>
-                card.content.blocks.some(b => b.data.text && b.data.text.trim().length > 0) &&
-                !card.audioUrl &&
-                !card.isGenerating
-            );
+        if (cards.length > 50) {
+            toast.error('لقد تجاوزت الحد الأقصى لعدد الكتل المسموح به وهو 50.');
+            return;
+        }
+
+        for (const card of cards) {
+            const text = card.content.blocks.map(b => b.data.text).join(' \n');
+            const wordCount = text.split(/\s+/).filter(Boolean).length;
+            if (wordCount > 1000) {
+                toast.error(`تجاوزت كتلة واحدة الحد الأقصى للكلمات وهو 1000 كلمة. (الكتلة الحالية: ${wordCount} كلمة)`);
+                return;
+            }
+        }
+
+        const cardsToGenerate = cards.filter(card =>
+            card.content.blocks.some(b => b.data.text && b.data.text.trim().length > 0) &&
+            !card.audioUrl &&
+            !card.isGenerating
+        );
         if (cardsToGenerate.length === 0) {
-            toast.error('Add text to generate audio or wait for the current process to complete.');
+            toast.error('أضف نصًا لإنشاء الصوت أو انتظر حتى تكتمل العملية الحالية.');
             return;
         }
 
         setIsGenerating(true);
         const generationToastId = toast.loading(`Generating audio for ${cardsToGenerate.length} block(s)...`);
 
-                                    const generationPromises = cardsToGenerate.map(async (card) => {
-                                        const selectedVoice = voices.find(v => v.name === card.voice);
-                            
-                                        // Maintenance Check
-                                        if (selectedVoice?.provider === 'ghaymah' && MAINTENANCE_VOICES.includes(card.voice)) {
-                                            const voiceName = selectedVoice?.characterName || card.voice;
-                                            const errorMsg = `Voice "${voiceName}" is currently under maintenance.`;
-                                            toast.error(errorMsg);
-                                            return { id: card.id, error: errorMsg };
-                                        }
-                            
-                                        // Voice Not Found Check
-                                        if (!selectedVoice) {
-                                            const errorMsg = `Voice for block with text "${card.content.blocks[0].data.text.substring(0, 20)}..." not found. Please re-select a voice.`;
-                                            toast.error(errorMsg);
-                                            return { id: card.id, error: errorMsg };
-                                        }                    
-                                try {
-                                    updateCard(card.id, { isGenerating: true });
+        const BATCH_SIZE = 2; // Process 2 requests at a time
+        
+        type GenerationResult = {
+            id: string;
+            s3_url: string;
+            audioUrl: string;
+            duration: number;
+            job_id: string;
+            error?: undefined;
+        } | {
+            id: string;
+            error: string;
+            s3_url?: undefined;
+            audioUrl?: undefined;
+            duration?: undefined;
+            job_id?: undefined;
+        };
+
+        const allResults: GenerationResult[] = [];
+
+        for (let i = 0; i < cardsToGenerate.length; i += BATCH_SIZE) {
+            const batch = cardsToGenerate.slice(i, i + BATCH_SIZE);
+            
+            const generationPromises = batch.map(async (card): Promise<GenerationResult> => {
+                const selectedVoice = voices.find(v => v.name === card.voice);
+                console.log(selectedVoice);
+
+                // Maintenance Check
+                if (selectedVoice?.provider === 'ghaymah' && MAINTENANCE_VOICES.includes(selectedVoice.voiceId)) {
+                    const voiceName = selectedVoice?.characterName || card.voice;
+                    const errorMsg = `Voice "${voiceName}" is currently under maintenance.`;
+                    toast.error(errorMsg);
+                    return { id: card.id, error: errorMsg };
+                }
+
+                // Voice Not Found Check
+                if (!selectedVoice) {
+                    const errorMsg = `Voice for block with text "${card.content.blocks[0].data.text.substring(0, 20)}..." not found. Please re-select a voice.`;
+                    toast.error(errorMsg);
+                    return { id: card.id, error: errorMsg };
+                }
+
+                try {
+                    updateCard(card.id, { isGenerating: true });
+
+                    const provider = selectedVoice.provider;
+
+                    const res = await fetch(`/api/tts/generate-segment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: card.content.blocks.map(b => b.data.text).join(' \n'),
+                            voice: selectedVoice.voiceId,
+                            provider: provider,
+                            project_id: projectId,
+                            user_id: authContext.user?.id,
+                            arabic: card.isArabic,
+                        }),
+                    });
+                    const job = await res.json();
+                    if (!res.ok) {
+                        let errorMessage = 'Failed to start generation job.';
+                        if (job.error) {
+                            if (typeof job.error === 'object') {
+                                errorMessage = JSON.stringify(job.error);
+                            } else {
+                                errorMessage = job.error;
+                            }
+                        }
+                        throw new Error(errorMessage);
+                    }
+
+                    updateCard(card.id, { job_id: job.job_id });
+
+                    let status = '';
+                    while (status !== 'completed' && status !== 'failed') {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        const statusRes = await fetch(`/api/tts/status/${job.job_id}`);
+                        const statusData = await statusRes.json();
+                        status = statusData.status;
+                    }
+
+                    if (status === 'failed') {
+                        throw new Error(`Generation failed for block: ${card.id}`);
+                    }
+
+                    const audioRes = await fetch(`/api/tts/result/${job.job_id}`);
+                    if (!audioRes.ok) {
+                        throw new Error(`Failed to fetch audio result for job: ${job.job_id}`);
+                    }
+
+                    const audioBlob = await audioRes.blob();
+
+                    if (audioBlob.size < 1000) {
+                        throw new Error(`Generation resulted in an empty audio file for job: ${job.job_id}`);
+                    }
                     
-                                    const provider = selectedVoice.provider; // No more fallback!
-                    
-                                    const res = await fetch(`/api/tts/generate-segment`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            text: card.content.blocks.map(b => b.data.text).join(' \n'),
-                                            voice: card.voice,
-                                            provider: provider,
-                                            project_id: projectId,
-                                            user_id: authContext.user?.id,
-                                            arabic: card.isArabic,
-                                        }),
-                                    });                const job = await res.json();
-                if (!res.ok) {
-                    throw new Error(job.error || 'Failed to start generation job.');
+                    const s3_url = await uploadAudioSegment(audioBlob, projectId);
+                    const duration = getMP3Duration(Buffer.from(await audioBlob.arrayBuffer())) / 1000;
+                    const audioUrl = URL.createObjectURL(audioBlob);
+
+                    return { id: card.id, s3_url, audioUrl, duration, job_id: job.job_id };
+
+                } catch (error: any) {
+                    console.error(`Error generating audio for card ${card.id}:`, error);
+                    return { id: card.id, error: error.message };
                 }
+            });
 
-                updateCard(card.id, { job_id: job.job_id });
+            const batchResults = await Promise.all(generationPromises);
+            allResults.push(...batchResults);
 
-                let status = '';
-                while (status !== 'completed' && status !== 'failed') {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    const statusRes = await fetch(`/api/tts/status/${job.job_id}`);
-                    const statusData = await statusRes.json();
-                    status = statusData.status;
-                }
-
-                if (status === 'failed') {
-                    throw new Error(`Generation failed for block: ${card.id}`);
-                }
-
-                const audioRes = await fetch(`/api/tts/result/${job.job_id}`);
-                if (!audioRes.ok) {
-                    throw new Error(`Failed to fetch audio result for job: ${job.job_id}`);
-                }
-
-                const audioBlob = await audioRes.blob();
-                const s3_url = await uploadAudioSegment(audioBlob, projectId);
-                const duration = getMP3Duration(Buffer.from(await audioBlob.arrayBuffer())) / 1000;
-                const audioUrl = URL.createObjectURL(audioBlob);
-
-                return { id: card.id, s3_url, audioUrl, duration, job_id: job.job_id };
-
-            } catch (error: any) {
-                console.error(`Error generating audio for card ${card.id}:`, error);
-                // Return an error state for this specific card
-                return { id: card.id, error: error.message };
+            if (i + BATCH_SIZE < cardsToGenerate.length) {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delay
             }
-        });
+        }
 
         try {
-            const results = await Promise.all(generationPromises);
             const errorMessages: string[] = [];
 
             setCards(currentCards => {
                 const newCards = [...currentCards];
-                results.forEach(result => {
+                allResults.forEach(result => {
                     const cardIndex = newCards.findIndex(c => c.id === result.id);
                     if (cardIndex !== -1) {
                         if (result.error) {
@@ -316,7 +382,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
 
             errorMessages.forEach(msg => toast.error(msg));
 
-            const successCount = results.filter(r => !r.error).length;
+            const successCount = allResults.filter(r => !r.error).length;
             if (successCount > 0) {
                 toast.success(`Successfully generated audio for ${successCount} block(s).`, { id: generationToastId });
             } else {

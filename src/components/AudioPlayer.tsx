@@ -109,7 +109,7 @@ const AudioPlayer = ({ audioUrl }: { audioUrl: string }) => {
         className={`p-2 rounded-full ${hasError ? 'bg-red-500 cursor-not-allowed' : 'bg-black'} text-white`}
         disabled={hasError}
       >
-        {hasError ? <X size={20} /> : (isPlaying ? <Pause size={20} /> : <Play size={20} />)}
+        {hasError ? <X size={20} /> : (isPlaying ? <Pause size={20} /> : <Play size={20} className="-scale-x-100" />)}
       </button>
       
       {hasError ? (

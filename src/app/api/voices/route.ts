@@ -205,8 +205,13 @@ export async function GET() {
       console.error(`Failed to fetch TTS providers: Status ${providersResponse.status}`, errorBody);
       throw new Error('Failed to fetch TTS providers');
     }
-    const providers = await providersResponse.json();
-    console.log("Successfully fetched providers:", providers);
+    let providers = await providersResponse.json();
+    console.log("Original fetched providers list:", JSON.stringify(providers, null, 2));
+
+    // Filter out 'ghaymah_pro' to avoid confusion
+    // providers = providers.filter((p: string) => p !== 'ghaymah_pro');
+
+    console.log("Successfully fetched and filtered providers:", providers);
 
     // 3. Fetch voices for each provider in parallel
     const allVoicesPromises = providers.map(async (provider: string) => {
@@ -228,36 +233,50 @@ export async function GET() {
         console.log(`Successfully fetched ${voicesData.length} voices for provider: ${provider}.`);
         
         // Format voices and add the provider name to each voice
-        return voicesData.map((voice: any) => {
+        return voicesData.flatMap((voice: any) => { // Changed to flatMap
           const voiceId = voice.voice_id;
-          const characterName = proVoiceCharacterNameMap[voiceId] || voice.name;
-          const isPro = provider === 'ghaymah' && ['0', '1', '2', '3'].includes(voiceId);
+          
+          const isGhaymahProVoice = (provider === 'ghaymah_pro' && proVoiceCharacterNameMap.hasOwnProperty(voiceId));
 
-          const parts = voiceId.split('-');
-          const isNeural = voiceId.includes('-');
+          if (isGhaymahProVoice) {
+            const arabicVoice = {
+              name: `${voiceId}`, // Create a unique name for the voice
+              voiceId: voiceId, // Add this
+              gender: voiceGenderMap[voiceId] || 'Not specified',
+              languageName: getLanguageName('ar'),
+              languageCode: 'ar',
+              countryName: getCountryName('SA'),
+              countryCode: 'SA',
+              characterName: `${proVoiceCharacterNameMap[voiceId]} AR`,
+              provider: provider,
+            };
+            return [arabicVoice];
+          } else {
+            const parts = voiceId.split('-');
+            const isNeural = voiceId.includes('-');
 
-          // Corrected logic
-          let langCode = 'en';
-          let countryCode = 'US';
+            let langCode, countryCode;
 
-          if (isPro) {
-              langCode = 'ar';
-              countryCode = 'SA'; // Default Arabic country
-          } else if (isNeural) {
-              langCode = parts[0];
-              countryCode = parts[1].toUpperCase();
+            if (isNeural && parts.length >= 2) {
+                langCode = parts[0];
+                countryCode = parts[1].toUpperCase();
+            } else {
+                langCode = 'ar';
+                countryCode = 'US';
+            }
+
+            return [{
+              name: voiceId,
+              voiceId: voiceId,
+              gender: voiceGenderMap[voiceId] || 'Not specified',
+              languageName: getLanguageName(langCode),
+              languageCode: langCode,
+              countryName: getCountryName(countryCode),
+              countryCode: countryCode,
+              characterName: proVoiceCharacterNameMap[voiceId] || voice.name,
+              provider: provider,
+            }];
           }
-
-          return {
-            name: voiceId,
-            gender: voiceGenderMap[voiceId] || 'Not specified',
-            languageName: getLanguageName(langCode),
-            languageCode: langCode,
-            countryName: getCountryName(countryCode),
-            countryCode: countryCode,
-            characterName: characterName,
-            provider: provider, // Add the provider to the voice object
-          };
         });
       } catch (error) {
         console.error(`Error processing provider ${provider}:`, error);
@@ -270,7 +289,9 @@ export async function GET() {
     const allVoices = allVoicesNested.flat();
     console.log(`Total voices fetched from all providers: ${allVoices.length}`);
 
-    return NextResponse.json(allVoices);
+    const filteredVoices = allVoices.filter(voice => voice.languageCode === 'ar' || voice.languageCode === 'en');
+
+    return NextResponse.json(filteredVoices);
 
   } catch (error: any) {
     console.error("Error in GET /api/voices:", error);

@@ -8,17 +8,15 @@ import { notFound } from 'next/navigation';
 import { Voice, StudioBlock } from '@/lib/types';
 
 
-type Props = {
-  params: { id: string };
-  searchParams: { [key: string]: string | string[] | undefined };
-};
+
+
+
 
 export async function generateMetadata(
-  { params, searchParams }: Props,
+  { params, searchParams }: any,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const awaitedParams = await params;
-  const id = awaitedParams.id;
+  const id = (await params).id;
   const project = await getProjectById(id);
 
   if (!project) {
@@ -62,9 +60,8 @@ export async function generateMetadata(
   };
 }
 
-export default async function StudioProjectPage({ params }: Props) {
-    const awaitedParams = await params;
-    const projectId = awaitedParams.id;
+export default async function StudioProjectPage({ params }: any) {
+    const projectId = (await params).id;
 
     const [project, voices, blocks] = await Promise.all([
         getProjectById(projectId),

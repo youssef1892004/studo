@@ -265,7 +265,7 @@ export default function SegmentPlayer({ audioUrl, text, blockId, projectId, onUr
         ) : isPlaying ? (
             <Pause size={16} />
         ) : (
-            <Play size={16} className="ml-0.5" />
+            <Play size={16} className="ml-0.5 -scale-x-100" />
         )}
       </button>
       

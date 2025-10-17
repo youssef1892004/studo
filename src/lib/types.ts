@@ -3,6 +3,7 @@ import { OutputData } from "@editorjs/editorjs";
 
 export interface Voice {
   name: string;
+  voiceId: string;
   gender: 'Male' | 'Female' | 'Not specified';
   languageName: string;
   languageCode: string;

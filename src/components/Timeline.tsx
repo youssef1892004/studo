@@ -1,7 +1,7 @@
 // src/components/Timeline.tsx
 'use client';
 
-import { StudioBlock } from '@/lib/types';
+import { Voice, StudioBlock } from '@/lib/types';
 import { Play, Pause, ZoomIn, ZoomOut } from 'lucide-react';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
@@ -56,7 +56,7 @@ const formatTime = (time: number) => {
 interface TimelineProps {
   cards: StudioBlock[];
   voices: Voice[];
-  onCardsUpdate?: (cards: StudioBlock[]) => void; // لتحديث الكروت من المكون الأب
+  onCardsUpdate?: React.Dispatch<React.SetStateAction<StudioBlock[]>>; // لتحديث الكروت من المكون الأب
   isBlocksProcessing: boolean;
 }
 
@@ -310,7 +310,7 @@ export default function Timeline({ cards, voices, onCardsUpdate, isBlocksProcess
                         disabled={audioSegments.length === 0}
                         className="p-3 bg-black hover:bg-gray-800 text-white rounded-full transition-colors disabled:bg-gray-400"
                     >
-                        {isPlaying ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
+                        {isPlaying ? <Pause size={20} /> : <Play size={20} className="ml-0.5 -scale-x-100" />}
                     </button>
                     <div className="text-sm font-mono text-gray-700 w-28 sm:w-32 text-center">
                         {formatTime(currentTime)} / {formatTime(totalDuration)}

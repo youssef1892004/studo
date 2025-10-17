@@ -128,7 +128,7 @@ export default function SettingsSidebar({
                   {activeVoiceName === voice.name ? (
                     <Check size={18} className="text-blue-600" />
                   ) : (
-                    <Play size={18} className="text-gray-400 opacity-0 group-hover:opacity-100" />
+                    <Play size={18} className="text-gray-400 opacity-0 group-hover:opacity-100 -scale-x-100" />
                   )}
                 </div>
               </button>

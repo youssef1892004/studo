@@ -3,15 +3,13 @@ import { Voice } from './types';
 
 // A robust function to get the correct API path
 export const getApiUrl = (path: string) => {
-  const baseUrl = process.env.NODE_ENV === 'production'
-    ? (process.env.NEXT_PUBLIC_APP_URL || 'https://ghaymah.systems')
-    : 'http://localhost:3000';
-
   if (typeof window === 'undefined') {
-    // We are on the server, so we need an absolute URL
+    // We are on the server, so we need an absolute URL.
+    // In a containerized environment, we should use the internal service name or localhost.
+    const baseUrl = process.env.INTERNAL_APP_URL || 'http://127.0.0.1:3000';
     return `${baseUrl}${path}`;
   }
-  // We are on the client, so a relative URL is fine
+  // We are on the client, so a relative URL is fine.
   return path;
 };
 

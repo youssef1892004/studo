@@ -46,8 +46,8 @@ export default function ProjectHeader({
 
       <div className="flex items-center gap-4">
         <button onClick={handleGenerate} disabled={isGenerateDisabled ?? isGenerating} className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2">
-          {isGenerating ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
           {isGenerating ? 'Generating...' : 'Generate'}
+          {isGenerating ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 -scale-x-100" />}
         </button>
         
         <button onClick={handleDownloadAll} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors" title="Download All">
