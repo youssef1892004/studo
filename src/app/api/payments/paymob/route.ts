@@ -48,9 +48,9 @@ async function getUserIdFromSession(req: Request): Promise<string | null> {
 
 export async function POST(req: Request) {
   try {
-    const { amount_cents, currency, items, billing_data, plan_id } = await req.json();
+    const { amount_cents, currency, items, billing_data, plan_id, payment_method } = await req.json();
 
-    if (!amount_cents || !items || !billing_data || !plan_id) {
+    if (!amount_cents || !items || !billing_data || !plan_id || !payment_method) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
             user_id: $userId, 
             amount: $amount, 
             transaction_id: $orderId,
-            plain_id: $planId, 
+            plan_id: $planId, 
             status: "pending",
             currency: "EGP",
             payment_method: "Paymob",
@@ -141,6 +141,12 @@ export async function POST(req: Request) {
     // =================================================================
     // Step 3: Payment Key Request
     // =================================================================
+    const integration_id = payment_method === 'wallet' 
+        ? process.env.PAYMOB_WALLET_INTEGRATION_ID 
+        : process.env.PAYMOB_INTEGRATION_ID;
+
+    console.log("Using integration_id:", integration_id);
+
     const paymentKeyResponse = await fetch('https://accept.paymob.com/api/acceptance/payment_keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -156,7 +162,7 @@ export async function POST(req: Request) {
           country: "NA", state: "NA",
         },
         currency: currency || 'EGP',
-        integration_id: process.env.PAYMOB_INTEGRATION_ID,
+        integration_id: integration_id,
         lock_order_when_paid: 'false',
       }),
     });
@@ -168,11 +174,33 @@ export async function POST(req: Request) {
     }
 
     // =================================================================
-    // Final Step: Construct Iframe URL
+    // Final Step: Construct Iframe URL or Redirect URL
     // =================================================================
-    const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${process.env.PAYMOB_IFRAME_ID}?payment_token=${paymentToken}`;
-    
-    return NextResponse.json({ iframeUrl });
+    if (payment_method === 'wallet') {
+        const walletPayResponse = await fetch('https://accept.paymob.com/api/acceptance/payments/pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source: {
+                    identifier: billing_data.phone_number, 
+                    subtype: 'WALLET'
+                },
+                payment_token: paymentToken
+            })
+        });
+        const walletPayData = await walletPayResponse.json();
+        const redirectUrl = walletPayData.redirection_url || walletPayData.redirect_url;
+
+        if (redirectUrl) {
+            return NextResponse.json({ redirectUrl: redirectUrl });
+        } else {
+            console.error("Paymob wallet payment failed:", walletPayData);
+            return NextResponse.json({ error: 'Failed to process wallet payment' }, { status: 500 });
+        }
+    } else {
+        const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${process.env.PAYMOB_IFRAME_ID}?payment_token=${paymentToken}`;
+        return NextResponse.json({ redirectUrl: iframeUrl });
+    }
 
   } catch (error) {
     console.error('Paymob integration error:', error);

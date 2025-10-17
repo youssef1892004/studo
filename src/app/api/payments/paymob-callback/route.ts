@@ -17,12 +17,16 @@ export async function POST(req: Request) {
     
     // الخطوة 2: تجميع البيانات للتحقق من التوقيع
     const concatenatedString = `${obj.amount_cents}${obj.created_at}${obj.currency}${obj.error_occured}${obj.has_parent_transaction}${obj.id}${obj.integration_id}${obj.is_3d_secure}${obj.is_auth}${obj.is_capture}${obj.is_refunded}${obj.is_standalone_payment}${obj.is_voided}${obj.order.id}${obj.owner}${obj.pending}${obj.source_data.pan}${obj.source_data.sub_type}${obj.source_data.type}${obj.success}`;
+    console.log("Concatenated string for HMAC:", concatenatedString);
 
     // الخطوة 3: تشفير البيانات
     const calculatedHmac = crypto
       .createHmac('sha512', process.env.PAYMOB_HMAC_SECRET!)
       .update(concatenatedString)
       .digest('hex');
+
+    console.log("HMAC from Paymob:", hmacFromPaymob);
+    console.log("Calculated HMAC:", calculatedHmac);
 
     // الخطوة 4: مقارنة التوقيعين
     if (calculatedHmac !== hmacFromPaymob) {
@@ -41,9 +45,9 @@ export async function POST(req: Request) {
 
     // 1. تحديث جدول "payments"
     const UPDATE_PAYMENT = `
-      mutation UpdatePayment($orderId: bigint!, $status: String!, $transactionId: bigint) {
-        update_payments(
-          where: { paymob_order_id: { _eq: $orderId } },
+      mutation UpdatePayment($orderId: String!, $status: String!, $transactionId: String!) {
+        update_Voice_Studio_payments(
+          where: { transaction_id: { _eq: $orderId } },
           _set: { 
             status: $status, 
             paymob_transaction_id: $transactionId 
@@ -67,9 +71,9 @@ export async function POST(req: Request) {
         body: JSON.stringify({
             query: UPDATE_PAYMENT,
             variables: {
-                orderId: orderId,
+                orderId: orderId.toString(),
                 status: newStatus,
-                transactionId: transactionId,
+                transactionId: transactionId.toString(),
             },
         }),
     });
@@ -81,8 +85,8 @@ export async function POST(req: Request) {
     }
 
     // 2. تفعيل الاشتراك إذا نجح الدفع
-    if (isSuccess && hasuraResult.data?.update_payments?.returning[0]) {
-        const payment = hasuraResult.data.update_payments.returning[0];
+    if (isSuccess && hasuraResult.data?.update_Voice_Studio_payments?.returning[0]) {
+        const payment = hasuraResult.data.update_Voice_Studio_payments.returning[0];
         const paidUserId = payment.user_id;
         const paidPlanId = payment.plan_id;
 

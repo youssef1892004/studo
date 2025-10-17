@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       if (res.ok) {
         const { subscription: subData } = await res.json();
+        console.log("Subscription data:", subData);
         setSubscription(subData);
       }
     } catch (error) {

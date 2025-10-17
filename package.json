@@ -41,6 +41,7 @@
     "react": "^18",
     "react-dom": "^18",
     "react-hot-toast": "^2.6.0",
+    "react-icons": "^5.5.0",
     "react-voice-visualizer": "^2.0.8",
     "subscriptions-transport-ws": "^0.11.0",
     "uuid": "^9.0.1",

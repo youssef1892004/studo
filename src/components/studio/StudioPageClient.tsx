@@ -46,7 +46,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
     const [enableTashkeel, setEnableTashkeel] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
-    const { user, subscription, isLoading: isAuthLoading } = useAuth();
+    const { user, subscription, isLoading: isAuthLoading, refreshSubscription } = useAuth();
     const router = useRouter();
     const params = useParams();
     const projectId = params.id as string;
@@ -104,8 +104,10 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
     useEffect(() => {
       if (!isAuthLoading && !user) {
         router.replace('/login');
+      } else if (user) {
+        refreshSubscription();
       }
-    }, [isAuthLoading, user, router]);
+    }, [isAuthLoading, user, router, refreshSubscription]);
 
     const addCard = useCallback((currentVoices = voices) => {
         const newCardId = uuidv4();

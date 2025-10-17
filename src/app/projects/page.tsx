@@ -61,6 +61,7 @@ export default function ProjectsPage() {
 
     useEffect(() => {
         if (authContext?.user?.id) {
+            authContext.refreshSubscription();
             getProjectsByUserId(authContext.user.id)
                 .then(setProjects)
                 .catch(err => {
@@ -69,7 +70,7 @@ export default function ProjectsPage() {
                 })
                 .finally(() => setIsLoading(false));
         }
-    }, [authContext?.user?.id]);
+    }, [authContext]);
     
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault();
