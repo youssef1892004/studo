@@ -61,3 +61,14 @@ export interface Project {
   user_id: string;
   blocks_json?: any;
 }
+
+export interface Subscription {
+  id: string;
+  active: boolean;
+  remaining_chars: number;
+  end_date: string;
+  plan: {
+    name: string;
+    max_chars: number;
+  };
+}

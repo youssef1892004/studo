@@ -1,14 +1,68 @@
 'use client';
 
-import type { Metadata } from 'next';
 import Link from 'next/link';
-import { useState } from 'react';
-import { ArrowLeft, DollarSign, Clock, Zap, Star, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Clock, Zap, Star, Users, DollarSign } from 'lucide-react';
+import { executeGraphQL } from '@/lib/graphql';
+import CenteredLoader from '@/components/CenteredLoader';
 
-// Metadata is not used in client components, but we can keep it for reference or move it to a layout.
+const GET_PLANS = `
+  query GetPlans {
+    Voice_Studio_Plans(order_by: {price: asc}) {
+      id
+      name
+      price
+      max_chars
+      support_level
+    }
+  }
+`;
+
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  max_chars: number;
+  support_level: string;
+}
 
 export default function PricingPage() {
-  const [showContact, setShowContact] = useState(false);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const response = await executeGraphQL<{ Voice_Studio_Plans: Plan[] }>({
+          query: GET_PLANS,
+        });
+        if (response.errors) {
+          throw new Error(response.errors[0].message);
+        }
+        setPlans(response.data?.Voice_Studio_Plans || []);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPlans();
+  }, []);
+
+  const getFeatureIcon = (feature: string) => {
+    if (feature.includes('Chars')) return <Clock size={18} className="text-green-500" />;
+    if (feature.includes('Support')) return <Zap size={18} className="text-green-500" />;
+    return <Star size={18} className="text-green-500" />;
+  };
+
+  if (isLoading) {
+    return <CenteredLoader message="Loading Plans..." />;
+  }
+
+  if (error) {
+    return <div className="text-red-500 text-center p-8">Error loading plans: {error}</div>;
+  }
 
   return (
     <div className="min-h-screen pt-16 bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
@@ -30,141 +84,33 @@ export default function PricingPage() {
         </p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 justify-center">
-
-            {/* 1. Free Tier */}
-            <div className="bg-gray-50 dark:bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
+          {plans.map(plan => (
+            <div key={plan.id} className="bg-gray-50 dark:bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">الباقة المجانية</h2>
-                    <p className="text-lg text-gray-500 mb-6">ابدأ تجربتك بدون أي التزام.</p>
-                    <div className="text-5xl font-extrabold mb-6">
-                        $0
+                    <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">{plan.name}</h2>
+                    <div className="text-5xl font-extrabold my-6">
+                        ${(plan.price / 100).toFixed(2)}
+                        <span className="text-xl font-normal">/شهرياً</span>
                     </div>
                     <ul className="space-y-3 text-gray-700 dark:text-gray-300 text-right mb-8">
                         <li className="flex items-center justify-end">
-                            <span className="mr-3">**10,000** كلمة شهرياً</span>
-                            <Clock size={18} className="text-green-500" />
+                            <span className="mr-3">{plan.max_chars.toLocaleString()} Chars/month</span>
+                            {getFeatureIcon('Chars')}
                         </li>
                         <li className="flex items-center justify-end">
-                            <span className="mr-3">الوصول للأصوات القياسية</span>
-                            <Zap size={18} className="text-green-500" />
-                        </li>
-                        <li className="flex items-center justify-end opacity-50">
-                            <span className="mr-3 line-through">تشكيل الحروف العربية</span>
-                            <Star size={18} className="text-red-500" />
+                            <span className="mr-3">{plan.support_level} Support</span>
+                            {getFeatureIcon('Support')}
                         </li>
                     </ul>
                 </div>
                 <Link 
-                    href="/register" 
-                    className="block w-full py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition-colors"
-                >
-                    ابدأ مجاناً
-                </Link>
-            </div>
-
-            {/* 2. $3 Tier */}
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">الباقة الأساسية</h2>
-                    <p className="text-lg text-gray-500 mb-6">مثالية للمشاريع الصغيرة.</p>
-                    <div className="text-5xl font-extrabold text-blue-600 mb-6">
-                        $3<span className="text-xl font-normal">/شهرياً</span>
-                    </div>
-                    <ul className="space-y-3 text-gray-700 dark:text-gray-300 text-right mb-8">
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">**15,000** كلمة شهرياً</span>
-                            <Clock size={18} className="text-blue-500" />
-                        </li>
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">الوصول لجميع الأصوات</span>
-                            <Zap size={18} className="text-blue-500" />
-                        </li>
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">ميزة تشكيل الحروف العربية</span>
-                            <Star size={18} className="text-blue-500" />
-                        </li>
-                    </ul>
-                </div>
-                <Link 
-                    href="/checkout?tier=basic" 
-                    className="block w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                    href={`/checkout?plan_id=${plan.id}`}
+                    className="block w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors mt-6"
                 >
                     اشترك الآن
                 </Link>
             </div>
-
-            {/* 3. $5 Tier (Most Popular) */}
-            <div className="bg-white dark:bg-gray-700 p-8 rounded-xl shadow-2xl ring-4 ring-blue-500 text-center flex flex-col justify-between transform lg:scale-105">
-                <div>
-                    <p className="text-sm font-semibold text-white bg-blue-600 py-1 px-4 rounded-full inline-block mb-4">الأكثر شعبية</p>
-                    <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">الباقة الاحترافية</h2>
-                    <p className="text-lg text-gray-500 dark:text-gray-300 mb-6">لصناع المحتوى المحترفين.</p>
-                    <div className="text-5xl font-extrabold text-blue-600 mb-6">
-                        $5<span className="text-xl font-normal">/شهرياً</span>
-                    </div>
-                    <ul className="space-y-3 text-gray-700 dark:text-gray-300 text-right mb-8">
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">**50,000** كلمة شهرياً</span>
-                            <Clock size={18} className="text-blue-500" />
-                        </li>
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">الوصول لجميع الأصوات</span>
-                            <Zap size={18} className="text-blue-500" />
-                        </li>
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">ميزة تشكيل الحروف العربية</span>
-                            <Star size={18} className="text-blue-500" />
-                        </li>
-                    </ul>
-                </div>
-                <Link 
-                    href="/checkout?tier=pro" 
-                    className="block w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                    اشترك الآن
-                </Link>
-            </div>
-
-            {/* 4. Enterprise Tier */}
-            <div className="bg-gray-50 dark:bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">باقة الشركات</h2>
-                    <p className="text-lg text-gray-500 mb-6">حلول مخصصة للشركات الكبيرة.</p>
-                    <div className="text-4xl font-extrabold text-gray-800 dark:text-white mb-6">
-                        يبدأ من <span className="text-green-600">$10</span>
-                    </div>
-                    <ul className="space-y-3 text-gray-700 dark:text-gray-300 text-right mb-8">
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">أصوات حصرية ومخصصة</span>
-                            <Users size={18} className="text-green-500" />
-                        </li>
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">خدمة ودعم بأولوية</span>
-                            <Zap size={18} className="text-green-500" />
-                        </li>
-                        <li className="flex items-center justify-end">
-                            <span className="mr-3">كمية كلمات قابلة للتفاوض</span>
-                            <DollarSign size={18} className="text-green-500" />
-                        </li>
-                    </ul>
-                </div>
-                <div className="mt-auto">
-                  {showContact ? (
-                    <div className="text-left bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-                      <p className="text-sm font-semibold text-gray-800 dark:text-white">Email: <a href="mailto:aivoicestudio.s@gmail.com" className="text-blue-500 hover:underline">aivoicestudio.s@gmail.com</a></p>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-white mt-2">Phone: <a href="tel:+201115145338" className="text-blue-500 hover:underline">+201115145338</a></p>
-                    </div>
-                  ) : (
-                    <button 
-                        onClick={() => setShowContact(true)}
-                        className="block w-full py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-black transition-colors"
-                    >
-                        تواصل معنا
-                    </button>
-                  )}
-                </div>
-            </div>
-
+          ))}
         </div>
       </div>
     </div>

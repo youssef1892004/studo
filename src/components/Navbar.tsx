@@ -1,46 +1,33 @@
 // src/components/Navbar.tsx
 'use client';
 
-import { useContext } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { AuthContext } from '../contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext'; 
-import { LogOut, User as UserIcon, LogIn, UserPlus } from 'lucide-react'; 
+import { useAuth } from '../contexts/AuthContext';
+import { LogOut, User as UserIcon, LogIn, UserPlus, Crown } from 'lucide-react';
+import { Subscription } from '@/lib/types';
+
+
+
+import SubscriptionStatus from './SubscriptionStatus';
 
 export default function Navbar() {
-  const authContext = useContext(AuthContext);
+  const { user, logout, isLoading, subscription } = useAuth();
   const pathname = usePathname(); 
   const router = useRouter();
-  
-  // Safe theme hook usage
-  let toggleTheme = () => {};
-  try {
-    const themeContext = useTheme();
-    toggleTheme = themeContext.toggleTheme;
-  } catch (error) {
-    // ThemeProvider not available, use empty function
-  } 
 
   if (pathname.startsWith('/studio/')) {
     return null;
   }
-
-  if (!authContext) {
-    return null; 
-  }
-
-  const { user, logout, isLoading } = authContext;
 
   const handleLogout = () => {
     logout();
     router.push('/');
   };
 
-  // === تنسيقات التحميل (Skeleton Loader) ===
   if (isLoading) {
     return (
-      <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 h-16 border-b border-gray-200 transition-colors duration-300">
+      <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 h-16 border-b border-gray-200">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full">
             <div className="flex justify-between items-center h-full">
                  <div className="h-8 w-24 bg-gray-200 rounded-md animate-pulse"></div>
@@ -55,52 +42,26 @@ export default function Navbar() {
   }
 
   return (
-    // === تنسيقات شريط التنقل الرئيسية ===
-    <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 h-16 border-b border-gray-200 transition-colors duration-300">
+    <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 h-16 border-b border-gray-200">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full">
         <div className="flex justify-between items-center h-full">
           <div className="flex-shrink-0">
-            <Link href="/" className="text-2xl font-bold text-gray-900 transition-colors hover:text-blue-600">
+            <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-blue-600">
               Ai Voice Studio
             </Link>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-4">
-            
-            {/* === رابط حول (About) === */}
-            <Link 
-              href="/about" 
-              className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
-            >
-              ABOUT
-            </Link>
-            
-            {/* === رابط التوثيق (DOCS) === */}
-            <Link 
-              href="/docs" 
-              className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
-            >
-              DOCS
-            </Link>
-            
-            {/* === رابط الشروط والسياسات (POLICIES) === */}
-            <Link 
-              href="/legal" 
-              className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
-            >
-              POLICIES
-            </Link>
-            
-            {/* [NEW] === رابط الأسعار (PRICING) === */}
-            <Link 
-              href="/pricing" 
-              className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
-            >
-              PRICING
-            </Link>
+          <nav className="hidden md:flex items-center gap-2">
+            <Link href="/about" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">ABOUT</Link>
+            <Link href="/docs" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">DOCS</Link>
+            <Link href="/legal" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">POLICIES</Link>
+            <Link href="/pricing" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">PRICING</Link>
+          </nav>
 
+          <div className="flex items-center gap-4">
             {user ? (
               <>
+                {subscription && <SubscriptionStatus subscription={subscription} className="hidden lg:flex" />}
                 <div className="flex items-center gap-2">
                   <UserIcon className="h-5 w-5 text-gray-500" />
                   <span className="font-medium text-gray-700 hidden sm:inline">{user.displayName}</span>
@@ -116,11 +77,11 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link href="/login" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200">
+                <Link href="/login" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
                    <LogIn className="h-5 w-5 flex-shrink-0" />
                    <span>login</span>
                 </Link>
-                <Link href="/register" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-black transition-colors duration-200">
+                <Link href="/register" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-black">
                   <UserPlus className="h-5 w-5 flex-shrink-0" />
                   <span>register</span>
                 </Link>

@@ -190,6 +190,8 @@ export default function RightSidebar({
   searchTerm,
   setSearchTerm,
   maintenanceVoices,
+  enableTashkeel,
+  setEnableTashkeel,
 }: RightSidebarProps) {
     const [showVoiceLibrary, setShowVoiceLibrary] = useState(false);
     const [recentVoices, setRecentVoices] = useState<Voice[]>([]);
@@ -329,12 +331,20 @@ export default function RightSidebar({
                   </span>
                 </div>
                 <ChevronDown size={18} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
-              </div>
-            </div>
-
-
-
-            {/* Select Used Voice */}
+                            </div>
+                          </div>
+              
+                          {/* Tashkeel Toggle */}
+                          <div>
+                                              <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Enable Tashkeel (Arabic Vowels)</h3>
+                                                  <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" checked={enableTashkeel} onChange={() => setEnableTashkeel(!enableTashkeel)} className="sr-only peer" />
+                                                    <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                                                  </label>
+                                              </div>                          </div>
+              
+                          {/* Select Used Voice */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white">Select used voice</h3>

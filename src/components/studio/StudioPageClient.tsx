@@ -1,13 +1,13 @@
 'use client';
-    
-import { useContext, useEffect, useState, useRef, useCallback } from 'react';
+
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { fetchVoices } from '@/lib/tts';
 import { Voice, StudioBlock, Project } from '@/lib/types';
 import { LoaderCircle, List } from 'lucide-react';
-import { AuthContext } from '@/contexts/AuthContext';
-import { getProjectById, updateProject, deleteBlockByIndex, deleteBlock } from '@/lib/graphql';
+import { useAuth } from '@/contexts/AuthContext';
+import { getProjectById, updateProject } from '@/lib/graphql';
 import getMP3Duration from 'get-mp3-duration';
 import { uploadAudioSegment } from '@/lib/tts';
 import toast from 'react-hot-toast';
@@ -18,15 +18,10 @@ import Timeline from '@/components/Timeline';
 import CenteredLoader from '@/components/CenteredLoader';
 
 const PRO_VOICES_IDS = ['0', '1', '2', '3'];
-
 const MAINTENANCE_VOICES = ['0', '1', '2', '3'];
 
-
-
 interface StudioPageClientProps {
-
     initialProject: Project;
-
     initialVoices: (Voice & { isPro?: boolean })[];
     initialBlocks: StudioBlock[];
 }
@@ -51,16 +46,12 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
     const [enableTashkeel, setEnableTashkeel] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
-    const authContext = useContext(AuthContext);
+    const { user, subscription, isLoading: isAuthLoading } = useAuth();
     const router = useRouter();
     const params = useParams();
     const projectId = params.id as string;
 
     const activeCard = cards.find(c => c.id === activeCardId);
-
-    if (!authContext) {
-        throw new Error('AuthContext must be used within an AuthProvider');
-    }
 
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
@@ -101,7 +92,6 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
             isInitialLoad.current = false;
             return;
         };
-        // Debounce saving to avoid excessive requests
         const handler = setTimeout(() => {
             if (cards.length > 0) {
                 saveBlocks(cards);
@@ -112,11 +102,11 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
 
     // Redirect if not logged in
     useEffect(() => {
-      if (!authContext?.isLoading && !authContext?.user) {
+      if (!isAuthLoading && !user) {
         router.replace('/login');
       }
-    }, [authContext?.isLoading, authContext?.user, router]);
-  
+    }, [isAuthLoading, user, router]);
+
     const addCard = useCallback((currentVoices = voices) => {
         const newCardId = uuidv4();
         const defaultVoice = "ar-EG-ShakirNeural";
@@ -186,13 +176,12 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
 
     const removeCard = useCallback(async (id: string) => {
         setCards(prev => prev.filter(card => card.id !== id));
-        // The saveBlocks useEffect will handle persisting this change
     }, []);
     
     const handleApplyVoice = (voiceName: string) => {
       if (activeCardId) {
         const selectedVoice = voices.find(v => v.name === voiceName);
-        const isArabicVoice = selectedVoice?.languageCode === 'ar';
+        const isArabicVoice = false;
         updateCard(activeCardId, { 
             voice: voiceName, 
             isArabic: isArabicVoice, 
@@ -208,7 +197,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
     
     const handleGenerate = async () => {
         if (isGenerating) return;
-        if (!authContext.user) return;
+        if (!user) return;
 
         if (cards.length > 50) {
             toast.error('لقد تجاوزت الحد الأقصى لعدد الكتل المسموح به وهو 50.');
@@ -237,16 +226,16 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
         setIsGenerating(true);
         const generationToastId = toast.loading(`Generating audio for ${cardsToGenerate.length} block(s)...`);
 
-        const BATCH_SIZE = 2; // Process 2 requests at a time
+        const BATCH_SIZE = 2;
         
-        type GenerationResult = {
+        type GenerationResult = { 
             id: string;
             s3_url: string;
             audioUrl: string;
             duration: number;
             job_id: string;
             error?: undefined;
-        } | {
+        } | { 
             id: string;
             error: string;
             s3_url?: undefined;
@@ -264,7 +253,6 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
                 const selectedVoice = voices.find(v => v.name === card.voice);
                 console.log(selectedVoice);
 
-                // Maintenance Check
                 if (selectedVoice?.provider === 'ghaymah' && MAINTENANCE_VOICES.includes(selectedVoice.voiceId)) {
                     const voiceName = selectedVoice?.characterName || card.voice;
                     const errorMsg = `Voice "${voiceName}" is currently under maintenance.`;
@@ -272,9 +260,8 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
                     return { id: card.id, error: errorMsg };
                 }
 
-                // Voice Not Found Check
                 if (!selectedVoice) {
-                    const errorMsg = `Voice for block with text "${card.content.blocks[0].data.text.substring(0, 20)}..." not found. Please re-select a voice.`;
+                    const errorMsg = `Voice for block with text "${card.content.blocks[0].data.text.substring(0, 20)}"... not found. Please re-select a voice.`;
                     toast.error(errorMsg);
                     return { id: card.id, error: errorMsg };
                 }
@@ -292,7 +279,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
                             voice: selectedVoice.voiceId,
                             provider: provider,
                             project_id: projectId,
-                            user_id: authContext.user?.id,
+                            user_id: user?.id,
                             arabic: card.isArabic,
                         }),
                     });
@@ -349,7 +336,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
             const batchResults = await Promise.all(generationPromises);
             allResults.push(...batchResults);
 
-            if (i + BATCH_SIZE < cardsToGenerate.length) {
+            if (i + BATCH_SIZE < cardsToGenerate.length) { 
                 await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delay
             }
         }
@@ -390,7 +377,6 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
             }
 
         } catch (e) {
-            // This catch block is for errors in Promise.all itself, which is unlikely.
             toast.error('An unexpected error occurred during generation.', { id: generationToastId });
         } finally {
             setIsGenerating(false);
@@ -458,11 +444,11 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
           return (voice.characterName.toLowerCase().includes(lowerSearchTerm) || voice.countryName.toLowerCase().includes(lowerSearchTerm));
       });
   
-    if (authContext?.isLoading || isCriticalLoading) {
+    if (isAuthLoading || isCriticalLoading) {
       return <CenteredLoader message="Loading Project..." />;
     }
 
-    if (!authContext?.user) {
+    if (!user) {
       return null; // Redirect is handled by effect
     }
   
@@ -492,6 +478,7 @@ export default function StudioPageClient({ initialProject, initialVoices, initia
                     isGenerateDisabled={isGenerating}
                     handleGenerate={handleGenerate}
                     handleDownloadAll={handleDownloadAll}
+                    subscription={subscription} // Pass subscription data
                 />
                 <button onClick={toggleSidebar} className="p-2 text-gray-600 dark:text-gray-300">
                     <List size={20} />
